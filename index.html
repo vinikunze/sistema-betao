@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <title>Betão Auto Center — Gestão Premium</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#e8a020">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3204/3204482.png">
+    <link rel="stylesheet" href="enhancements.css">
+    <script src="enhancements.js"></script>
+</head>
+
+<body>
+
+    <div id="lockout-overlay">
+        <div class="lockout-icon">🔒</div>
+        <div class="lockout-title">Acesso Bloqueado</div>
+        <div class="lockout-timer" id="lockout-timer">5:00</div>
+    </div>
+
+    <div id="auth-screen">
+        <div class="auth-box">
+            <div class="auth-logo">
+                <div class="auth-logo-icon">🔧</div>
+                <h1>Betão Auto Center</h1>
+                <p>Gestão Cloud</p>
+            </div>
+            <div class="auth-tabs">
+                <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sócio</div>
+                <div class="auth-tab" id="tab-mec" onclick="switchTab('mecanico')">Mecânico</div>
+                <div class="auth-tab" id="tab-reg" onclick="switchTab('register')">Novo Sócio</div>
+            </div>
+            <div id="form-login">
+                <div id="login-error" class="auth-error"></div>
+                <h3 id="login-title" style="margin-bottom:15px; font-size:14px; color:var(--brand)">Acesso Proprietário
+                </h3>
+                <div class="form-group"><label id="label-email">E-mail do Sócio</label><input type="text" id="l-email"
+                        placeholder="seu@email.com"></div>
+                <div class="form-group"><label>Senha</label>
+                    <div class="input-icon-wrap"><input type="password" id="l-senha" placeholder="••••••••"><button
+                            class="input-eye" type="button" onclick="togglePwd('l-senha',this)">👁</button></div>
+                </div>
+                <div class="checkbox-group"><input type="checkbox" id="l-lembrar" checked><label for="l-lembrar">Manter
+                        conectado</label></div>
+                <button class="btn-auth" id="btn-login" onclick="doLogin()">Entrar no Sistema</button>
+            </div>
+            <div id="form-register" class="hidden">
+                <div id="reg-error" class="auth-error"></div>
+                <div class="form-group"><label>Nome Completo</label><input type="text" id="r-nome"
+                        style="text-transform: uppercase;"></div>
+                <div class="form-group"><label>E-mail</label><input type="email" id="r-email"></div>
+                <div class="form-group"><label>Código da Empresa</label><input type="password" id="r-codigo"></div>
+                <div class="form-group"><label>Senha</label><input type="password" id="r-senha"></div>
+                <div class="form-group"><label>Confirmar</label><input type="password" id="r-confirma"></div>
+                <button class="btn-auth" onclick="doRegister()">Criar Conta de Sócio</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mobile-menu-overlay" onclick="toggleMenu()"></div>
+
+    <main id="app-container" style="display: none;">
+
+        <header class="top-header">
+            <div class="top-header-left">
+                <div class="logo-brand">
+                    <div class="logo-icon">🔧</div>
+                    <div class="logo-text">Betão Auto Center<span id="sb-role-tag">Gestão Cloud</span></div>
+                </div>
+            </div>
+            <nav class="top-nav" id="main-nav"></nav>
+            <div class="top-header-right">
+                <div class="desktop-actions" id="desktop-actions-box">
+                    <button class="btn btn-primary" onclick="openDocModal('orcamento')" id="btn-novo-orcamento"
+                        style="display:none; background:var(--blue);">+ Orçamento</button>
+                    <button class="btn btn-primary" onclick="openDocModal('os')" id="btn-nova-os"
+                        style="display:none;">+ Nova OS</button>
+                </div>
+                <div class="user-menu">
+                    <div class="user-avatar" id="sb-avatar">--</div>
+                    <div class="user-info hidden-mobile"><strong id="sb-uname">Usuário</strong><span
+                            id="sb-role-display">Sócio</span></div>
+                    <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
+                </div>
+                <button class="mobile-menu-btn" onclick="toggleMenu()">☰</button>
+            </div>
+        </header>
+
+        <section class="main-content">
+            <div class="content-body">
+
+                <div class="page active" id="page-dashboard">
+                    <div class="filter-bar">
+                        <p
+                            style="color: var(--text-main); font-weight: bold; margin: 0; display:flex; align-items:center; gap:8px;">
+                            📅 Desempenho Financeiro</p>
+                        <div class="filter-controls">
+                            <div class="date-input-wrap"
+                                onclick="document.getElementById('d-data-inicio').showPicker()"><label>De</label><input
+                                    type="date" id="d-data-inicio"></div>
+                            <div class="date-input-wrap" onclick="document.getElementById('d-data-fim').showPicker()">
+                                <label>Até</label><input type="date" id="d-data-fim"></div>
+                            <button class="btn btn-primary btn-sm" onclick="filterDashboard()">🔍 Filtrar</button>
+                            <div class="divider hidden-mobile"></div>
+                            <button class="btn btn-secondary btn-sm" onclick="filterToday()">Ver Hoje</button>
+                            <button class="btn btn-ghost btn-sm" onclick="clearDashboardFilter()">Limpar</button>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card" style="border-top: 3px solid var(--brand);">
+                            <div class="label">Faturamento (OS)</div>
+                            <div class="value" id="d-fat" data-value="0">R$ 0,00</div>
+                            <div class="kpi-trend" id="d-fat-trend">--</div>
+                        </div>
+                        <div class="stat-card" style="border-top: 3px solid var(--success);">
+                            <div class="label">Lucro Líquido</div>
+                            <div class="value" id="d-lucro" data-value="0">R$ 0,00</div>
+                            <div class="kpi-trend" id="d-lucro-trend">--</div>
+                        </div>
+                        <div class="stat-card" style="border-top: 3px solid var(--danger);">
+                            <div class="label">Comissões Pagas</div>
+                            <div class="value" id="d-comissao" data-value="0">R$ 0,00</div>
+                            <div class="kpi-trend" id="d-comissao-trend">--</div>
+                        </div>
+                        <div class="stat-card" style="border-top: 3px solid var(--blue);">
+                            <div class="label">Ticket Médio (OS)</div>
+                            <div class="value" id="d-ticket" data-value="0">R$ 0,00</div>
+                            <div class="kpi-trend" id="d-ticket-trend">--</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-wrapper revenue-hero">
+                        <div class="revenue-hero-head">
+                            <div class="chart-header" style="margin:0;">📈 Faturamento ao longo do tempo</div>
+                            <div class="period-tabs" id="revenue-period-tabs">
+                                <button class="period-tab" data-p="7d" onclick="setRevenuePeriod('7d',this)">7 dias</button>
+                                <button class="period-tab active" data-p="month" onclick="setRevenuePeriod('month',this)">Este mês</button>
+                                <button class="period-tab" data-p="30d" onclick="setRevenuePeriod('30d',this)">30 dias</button>
+                                <button class="period-tab" data-p="90d" onclick="setRevenuePeriod('90d',this)">90 dias</button>
+                                <button class="period-tab" data-p="all" onclick="setRevenuePeriod('all',this)">Tudo</button>
+                            </div>
+                        </div>
+                        <div class="revenue-summary" id="revenue-summary"></div>
+                        <div class="chart-container"><canvas id="revenueTrendChart"></canvas></div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-wrapper">
+                            <div class="chart-header">💰 Faturamento, Custos e Lucro</div>
+                            <div class="chart-container"><canvas id="faturamentoChart"></canvas></div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <div class="chart-header">📋 Situação das Ordens</div>
+                            <div class="chart-container"><canvas id="ticketChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="chart-wrapper" style="margin-bottom:1.25rem;">
+                        <div class="chart-header">📅 Faturamento por dia da semana</div>
+                        <div class="chart-container"><canvas id="weekdayChart"></canvas></div>
+                    </div>
+
+                    <!-- INTELIGÊNCIA DE VENDAS (BI) -->
+                    <div class="bi-section">
+                        <div class="bi-title-row">
+                            <h2 class="bi-title">Inteligência de Vendas</h2>
+                            <span class="bi-period" id="bi-period">—</span>
+                        </div>
+
+                        <div class="bi-highlights">
+                            <div class="bi-highlight bi-good">
+                                <div class="bi-highlight-head">✅ O que está indo bem</div>
+                                <ul id="bi-good-list"></ul>
+                            </div>
+                            <div class="bi-highlight bi-warn">
+                                <div class="bi-highlight-head">⚠️ O que precisa de atenção</div>
+                                <ul id="bi-warn-list"></ul>
+                            </div>
+                        </div>
+
+                        <div class="bi-grid">
+                            <div class="bi-panel">
+                                <div class="bi-panel-head">Composição das vendas</div>
+                                <div class="bi-donut-wrap"><canvas id="composicaoChart"></canvas></div>
+                                <div class="bi-legend" id="bi-comp-legend"></div>
+                            </div>
+                            <div class="bi-panel">
+                                <div class="bi-panel-head">Saúde do negócio</div>
+                                <div class="bi-metrics" id="bi-metrics"></div>
+                            </div>
+                        </div>
+
+                        <div class="bi-grid">
+                            <div class="bi-panel">
+                                <div class="bi-panel-head">Serviços que mais venderam</div>
+                                <div class="bi-rank" id="bi-top-servicos"></div>
+                            </div>
+                            <div class="bi-panel">
+                                <div class="bi-panel-head">Peças que mais venderam</div>
+                                <div class="bi-rank" id="bi-top-pecas"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>OS#</th>
+                                        <th>Veículo</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="d-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page" id="page-orcamentos">
+                    <div class="table-wrap">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ORÇ#</th>
+                                        <th>Data</th>
+                                        <th>Veículo</th>
+                                        <th>Cliente</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orc-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page" id="page-os">
+                    <div class="kanban-wrapper">
+                        <div class="kanban-column" id="col-aberta" data-status="aberta">
+                            <div class="kanban-header badge-aberta">🔵 Abertas <span class="kanban-count"
+                                    id="count-aberta">0</span></div>
+                            <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
+                                id="cards-aberta"></div>
+                        </div>
+                        <div class="kanban-column" id="col-andamento" data-status="em_andamento">
+                            <div class="kanban-header badge-andamento">🟡 Em Andamento <span class="kanban-count"
+                                    id="count-andamento">0</span></div>
+                            <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
+                                id="cards-andamento"></div>
+                        </div>
+                        <div class="kanban-column" id="col-finalizada" data-status="finalizada">
+                            <div class="kanban-header badge-finalizada">🟢 Finalizadas <span class="kanban-count"
+                                    id="count-finalizada">0</span></div>
+                            <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
+                                id="cards-finalizada"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page" id="page-mec-dashboard">
+                    <div class="filter-bar">
+                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">📅 Filtro de Comissão</p>
+                        <div class="filter-controls">
+                            <div class="date-input-wrap"
+                                onclick="document.getElementById('m-data-inicio').showPicker()"><label>De</label><input
+                                    type="date" id="m-data-inicio"></div>
+                            <div class="date-input-wrap" onclick="document.getElementById('m-data-fim').showPicker()">
+                                <label>Até</label><input type="date" id="m-data-fim"></div>
+                            <button class="btn btn-primary btn-sm" onclick="filterMecDashboard()">🔍 Filtrar</button>
+                            <div class="divider hidden-mobile"></div>
+                            <button class="btn btn-secondary btn-sm" onclick="filterMecToday()">Ver Hoje</button>
+                            <button class="btn btn-ghost btn-sm" onclick="clearMecDashboardFilter()">Limpar</button>
+                        </div>
+                    </div>
+                    <div class="stat-card"
+                        style="margin-bottom:20px; background:linear-gradient(135deg, #1a1a1a, #000); border: 1px solid var(--brand);">
+                        <div class="label">Minha Comissão Recebida</div>
+                        <div class="value" id="mec-total-comissao">R$ 0,00</div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="label">Total M.O. Gerada</div>
+                            <div class="value" id="mec-total-mo">R$ 0,00</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="label">Serviços Feitos</div>
+                            <div class="value" id="mec-qtd-trabalhos">0</div>
+                        </div>
+                    </div>
+
+                    <h3
+                        style="margin-top:30px; margin-bottom:10px; font-size:1rem; font-weight:800; color:var(--brand); text-transform:uppercase;">
+                        Meus Serviços Finalizados</h3>
+                    <div class="table-wrap">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Veículo</th>
+                                        <th>Serviço</th>
+                                        <th>Comissão</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mec-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <h3
+                        style="margin-top:30px; margin-bottom:10px; font-size:1rem; font-weight:800; color:var(--blue); text-transform:uppercase;">
+                        Minhas Solicitações / Orçamentos</h3>
+                    <div class="table-wrap">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Veículo / Placa</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mec-orc-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page" id="page-mecanicos">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+                        <h3>Equipe</h3><button class="btn btn-primary" onclick="openMecModal()">+ Novo</button>
+                    </div>
+                    <div class="stats-grid" id="mec-grid"></div>
+                </div>
+                <div class="page" id="page-catalogo">
+                    <div class="catalogo-grid">
+                        <div class="catalog-section">
+                            <div class="catalog-section-header"><span>🛠️ Serviços</span></div>
+                            <div class="catalog-add-row"><input type="text" id="cat-servico-nome"
+                                    style="text-transform: uppercase;" placeholder="Ex: Alinhamento..."
+                                    onkeydown="if(event.key==='Enter') addCatalogItem('servicos')"><button
+                                    class="btn btn-primary btn-sm" onclick="addCatalogItem('servicos')">+ Add</button>
+                            </div>
+                            <div class="catalog-items-list" id="catalog-servicos-list"></div>
+                        </div>
+                        <div class="catalog-section">
+                            <div class="catalog-section-header"><span>⚙️ Peças</span></div>
+                            <div class="catalog-add-row"><input type="text" id="cat-peca-nome"
+                                    style="text-transform: uppercase;" placeholder="Ex: Filtro..."
+                                    onkeydown="if(event.key==='Enter') addCatalogItem('pecas')"><button
+                                    class="btn btn-primary btn-sm" onclick="addCatalogItem('pecas')">+ Add</button>
+                            </div>
+                            <div class="catalog-items-list" id="catalog-pecas-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="page" id="page-relatorios">
+                    <div class="filter-bar">
+                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">📅 Fechamento de Comissões</p>
+                        <div class="filter-controls">
+                            <div class="date-input-wrap"
+                                onclick="document.getElementById('r-data-inicio').showPicker()"><label>De</label><input
+                                    type="date" id="r-data-inicio"></div>
+                            <div class="date-input-wrap" onclick="document.getElementById('r-data-fim').showPicker()">
+                                <label>Até</label><input type="date" id="r-data-fim"></div><button
+                                class="btn btn-primary btn-sm" onclick="filterRelatorios()">🔍 Filtrar</button>
+                            <div class="divider hidden-mobile"></div><button class="btn btn-secondary btn-sm"
+                                onclick="filterRelatoriosToday()">Ver Hoje</button><button class="btn btn-ghost btn-sm"
+                                onclick="clearRelatoriosFilter()">Limpar</button>
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Mecânico</th>
+                                        <th>M.O. Gerada</th>
+                                        <th>Comissão Recebida</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="r-mec-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="overlay" id="modal-doc">
+        <div class="modal-box modal-lg">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem;">
+                <h2 id="mdoc-title" style="margin:0;">Documento</h2>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-secondary btn-sm" id="btn-print-doc" onclick="generatePDF()">🖨️ PDF</button>
+                    <button class="btn btn-success btn-sm" id="btn-convert-os" style="display:none;"
+                        onclick="convertOrcamentoToOS()">✅ Aprovar e Gerar OS</button>
+                </div>
+            </div>
+
+            <div class="os-form-grid">
+                <div class="form-group" style="position: relative;">
+                    <label>Placa (Buscar)</label>
+                    <input type="text" id="d-placa" style="text-transform: uppercase;"
+                        oninput="mostrarSugestoesPlaca(this.value)" onchange="buscarPlaca(this.value)"
+                        placeholder="ABC-1234" autocomplete="off">
+                    <div id="placa-suggestions" class="autocomplete-dropdown hidden"></div>
+                </div>
+                <div class="form-group"><label>Cliente</label><input type="text" id="d-cliente"
+                        placeholder="Nome do cliente" style="text-transform: uppercase;"></div>
+                <div class="form-group"><label>Marca</label><input type="text" id="d-veiculo"
+                        list="marcas-list" placeholder="Ex: Volkswagen" autocomplete="off"
+                        style="text-transform: uppercase;"></div>
+                <div class="form-group"><label>Modelo</label><input type="text" id="d-modelo"
+                        list="modelos-list" placeholder="Ex: Gol" autocomplete="off"
+                        style="text-transform: uppercase;"></div>
+                <div class="form-group"><label>Ano</label>
+                    <select id="d-ano"><option value="">Ano</option></select></div>
+                <div class="form-group"><label>KM Atual</label><input type="number" id="d-km"
+                        placeholder="Ex: 85000"></div>
+                <div class="form-group"><label>Motorização</label><input type="text" id="d-motor"
+                        placeholder="Ex: 1.6" style="text-transform: uppercase;"></div>
+            </div>
+            <datalist id="marcas-list"></datalist>
+            <datalist id="modelos-list"></datalist>
+
+            <div class="checklist-section">
+                <div class="checklist-section-title">🛠️ Serviços</div>
+                <p class="checklist-hint">Selecione os serviços:</p>
+                <div class="quick-add-row">
+                    <input type="text" id="quick-servico-nome" class="quick-add-input"
+                        placeholder="Criar serviço novo e salvar no catálogo..."
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();addQuickServico();}">
+                    <button type="button" class="btn btn-primary btn-sm quick-add-btn"
+                        onclick="addQuickServico()">+ Adicionar</button>
+                </div>
+                <div class="checklist-buttons" id="checklist-servicos"></div>
+                <div class="ativo-container" id="servicos-ativos"></div>
+            </div>
+            <div class="checklist-section">
+                <div class="checklist-section-title">⚙️ Peças</div>
+                <p class="checklist-hint">Selecione as peças:</p>
+                <div class="quick-add-row">
+                    <input type="text" id="quick-peca-nome" class="quick-add-input"
+                        placeholder="Criar peça nova e salvar no catálogo..."
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();addQuickPeca();}">
+                    <button type="button" class="btn btn-primary btn-sm quick-add-btn"
+                        onclick="addQuickPeca()">+ Adicionar</button>
+                </div>
+                <div class="checklist-buttons" id="checklist-pecas"></div>
+                <div class="ativo-container" id="pecas-ativas"></div>
+            </div>
+            <div class="os-resumo">
+                <div class="resumo-item"><span class="resumo-label">Mão de Obra</span><span class="resumo-val"
+                        id="sub-mo">R$ 0,00</span></div>
+                <div class="resumo-item"><span class="resumo-label">Peças</span><span class="resumo-val"
+                        id="sub-pecas">R$ 0,00</span></div>
+                <div class="resumo-item resumo-total">
+                    <div class="form-group" style="margin:0;"><label>Status</label><select id="d-status"></select></div>
+                    <div style="text-align:right;">
+                        <div
+                            style="font-size:11px; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">
+                            Total</div>
+                        <div style="font-weight:bold; font-size:26px; color:var(--brand);" id="res-total">R$ 0,00</div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button class="btn btn-ghost"
+                    onclick="document.getElementById('modal-doc').style.display='none'">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveDoc()" id="btn-save-doc">💾 Gravar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="modal-mec">
+        <div class="modal-box modal-sm">
+            <h2 id="modal-mec-title">Mecânico</h2>
+            <div class="form-group"><label>Nome</label><input type="text" id="m-nome"
+                    style="text-transform: uppercase;"></div>
+            <div class="form-group"><label>% Comissão</label><input type="number" id="m-com"></div>
+            <div class="form-group"><label>Senha de Acesso</label>
+                <div class="input-icon-wrap"><input type="password" id="m-senha"><button class="input-eye" type="button"
+                        onclick="togglePwd('m-senha',this)">👁</button></div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button class="btn btn-ghost"
+                    onclick="document.getElementById('modal-mec').style.display='none'">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveMec()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div id="print-layout">
+        <div class="print-header">
+            <div class="print-logo">
+                <h2>Betão Auto Center</h2>
+                <p>CNPJ: 00.000.000/0000-00</p>
+                <p>Telefone: (00) 00000-0000</p>
+                <p>Sinop, Mato Grosso</p>
+            </div>
+            <div class="print-doc-info">
+                <h1 id="print-type">Orçamento</h1>
+                <p><strong>Nº:</strong> <span id="print-id">--</span></p>
+                <p><strong>Data:</strong> <span id="print-date">--</span></p>
+                <p><strong>Status:</strong> <span id="print-status">--</span></p>
+            </div>
+        </div>
+        <div class="print-section">
+            <h3>Dados do Cliente e Veículo</h3>
+            <div class="print-grid">
+                <div><strong>Cliente:</strong> <span id="print-cliente">--</span></div>
+                <div><strong>Veículo:</strong> <span id="print-veiculo">--</span></div>
+                <div><strong>Modelo:</strong> <span id="print-modelo">--</span></div>
+                <div><strong>Placa:</strong> <span id="print-placa">--</span></div>
+                <div><strong>KM:</strong> <span id="print-km">--</span></div>
+                <div><strong>Motorização:</strong> <span id="print-motor">--</span></div>
+            </div>
+        </div>
+        <div class="print-section">
+            <h3>Serviços Realizados</h3>
+            <table class="print-table">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Qtd</th>
+                        <th>Valor Un.</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="print-servicos"></tbody>
+            </table>
+        </div>
+        <div class="print-section">
+            <h3>Peças Aplicadas</h3>
+            <table class="print-table">
+                <thead>
+                    <tr>
+                        <th>Descrição</th>
+                        <th>Qtd</th>
+                        <th>Valor Un.</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody id="print-pecas"></tbody>
+            </table>
+        </div>
+        <div class="print-totals">
+            <div><strong>Subtotal Mão de Obra:</strong> <span id="print-sub-mo">R$ 0,00</span></div>
+            <div><strong>Subtotal Peças:</strong> <span id="print-sub-pe">R$ 0,00</span></div>
+            <div class="print-grand-total"><strong>TOTAL GERAL:</strong> <span id="print-total">R$ 0,00</span></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
+    <script src="dashboard-bi.js"></script>
+    <script src="charts.js"></script>
+    <script src="form-extras.js"></script>
+    <script src="vehicle-fields.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(console.error));
+        }
+    </script>
+</body>
+
+</html>

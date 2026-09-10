@@ -1,0 +1,44 @@
+# Configuração de deploy — Betão Auto Center Cloud
+
+[build]
+  publish = "."
+
+# ---------- Segurança + HTTPS ----------
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Força HTTPS no navegador por 2 anos (HSTS)
+    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    # Sempre revalida: garante que toda atualização apareça na hora
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# ---------- Cache: HTML / SW / manifest sempre frescos ----------
+# (nomes de arquivo são fixos, sem hash, então não cacheamos pra deploy refletir na hora)
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/script.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/style.css"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

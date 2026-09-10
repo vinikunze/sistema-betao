@@ -1,0 +1,16 @@
+{
+    "name": "Betão Auto Center Cloud",
+    "short_name": "Betão OS",
+    "description": "Sistema Premium de Gestão Automotiva",
+    "start_url": "/index.html",
+    "display": "standalone",
+    "background_color": "#0a0a0a",
+    "theme_color": "#e8a020",
+    "icons": [
+        {
+            "src": "https://cdn-icons-png.flaticon.com/512/3204/3204482.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

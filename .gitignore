@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+.netlify/
+.supabase/
+node_modules/
+
