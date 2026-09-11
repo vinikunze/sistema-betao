@@ -1,8 +1,8 @@
 /* =========================================
    1. INICIALIZAÇÃO E NUVEM (SUPABASE)
 ========================================= */
-const supabaseUrl = 'https://hpcjfthrkkfunwvagxtw.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhwY2pmdGhya2tmdW53dmFneHR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMzkyODksImV4cCI6MjA5MjYxNTI4OX0.HSjD3nroREvQCYEn0PfhqOnNX7hYEo1V_dnReM_M3q0';
+const supabaseUrl = 'https://ccvlaywiyvrixduvbccj.supabase.co';
+const supabaseKey = 'sb_publishable_CB2fioqF__O8x_Vt4MBVsg_axk7Ui2J';
 const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
 
 const CONFIG = { CODIGO_SOCIOS: 'B17021103', SESSION_KEY: 'betao_sess' };
@@ -36,7 +36,7 @@ const animateValue = (elementId, start, end, duration) => {
 async function carregarDados() {
     if (!supabaseClient) return;
     // Carrega cada tabela isoladamente: um erro numa não derruba as outras.
-    const tabelas = ['socios', 'mecanicos', 'os', 'orcamentos', 'catalogo_pecas', 'catalogo_servicos'];
+    const tabelas = ['socios', 'mecanicos', 'os', 'catalogo_pecas', 'catalogo_servicos'];
     for (const t of tabelas) {
         try {
             const { data, error } = await supabaseClient.from(t).select('*');
