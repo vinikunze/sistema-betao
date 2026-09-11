@@ -340,12 +340,48 @@ function openDocModal(type, editId = null) {
     if (document.getElementById('modal-doc')) document.getElementById('modal-doc').style.display = 'flex';
 }
 
-function renderChecklistServicos() { const el = document.getElementById('checklist-servicos'); if (!el) return; el.innerHTML = db.catalogo_servicos.map(cs => { const ativo = stateOS.servicos.find(s => s.catalogoId === cs.id); return `<button type="button" class="checklist-btn ${ativo ? 'checklist-btn-active' : ''}" onclick="toggleServico('${cs.id}', '${cs.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativo ? '✓' : '+'}</span>${cs.nome}</button>`; }).join(''); renderServicosAtivos(); }
+/* BUSCA NOS CHECKLISTS
+   O mesmo campo que cria item novo tambem filtra a lista: digitar "past" deixa
+   so as pastilhas. Ignora acento e caixa, entao "oleo" acha "ÓLEO". */
+const normalizarBusca = (txt) => (txt || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+
+function termoBusca(tipo) {
+    const inp = document.getElementById(tipo === 'pecas' ? 'quick-peca-nome' : 'quick-servico-nome');
+    return inp ? normalizarBusca(inp.value) : '';
+}
+
+function filtrarChecklist(tipo) { if (tipo === 'pecas') renderChecklistPecas(); else renderChecklistServicos(); }
+
+function checklistVazio(tipo, termo) {
+    const label = tipo === 'pecas' ? 'peça' : 'serviço';
+    if (!termo) return `<p class="checklist-empty">Nenhum${tipo === 'pecas' ? 'a' : ''} ${label} no catálogo ainda.</p>`;
+    return `<p class="checklist-empty">Nenhum${tipo === 'pecas' ? 'a' : ''} ${label} com "${termo}". Toque em <strong>+ Adicionar</strong> para criar.</p>`;
+}
+
+function renderChecklistServicos() {
+    const el = document.getElementById('checklist-servicos'); if (!el) return;
+    const termo = termoBusca('servicos');
+    const lista = termo ? db.catalogo_servicos.filter(cs => normalizarBusca(cs.nome).includes(termo)) : db.catalogo_servicos;
+    el.innerHTML = lista.map(cs => {
+        const ativo = stateOS.servicos.find(s => s.catalogoId === cs.id);
+        return `<button type="button" class="checklist-btn ${ativo ? 'checklist-btn-active' : ''}" onclick="toggleServico('${cs.id}', '${cs.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativo ? '✓' : '+'}</span>${cs.nome}</button>`;
+    }).join('') || checklistVazio('servicos', termo);
+    renderServicosAtivos();
+}
 function toggleServico(catalogoId, nome) { const idx = stateOS.servicos.findIndex(s => s.catalogoId === catalogoId); if (idx >= 0) stateOS.servicos.splice(idx, 1); else stateOS.servicos.push({ id: Date.now().toString(), catalogoId, descricao: nome.toUpperCase(), mecanicoId: (session.role === 'mecanico' ? session.id : ''), qtd: 1, valor: 0 }); renderChecklistServicos(); updateTotals(); }
 function renderServicosAtivos() { const el = document.getElementById('servicos-ativos'); if (!el) return; el.innerHTML = stateOS.servicos.length ? `<div class="ativo-header-row"><span>Serviço</span><span>Mecânico</span><span>Qtd</span><span>R$ Unit.</span><span></span></div>` + stateOS.servicos.map(s => `<div class="ativo-row"><span class="ativo-nome">${s.descricao}</span><select onchange="updS('${s.id}','mecanicoId',this.value)"><option value="">Loja</option>${db.mecanicos.map(m => `<option value="${m.id}" ${s.mecanicoId == m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}</select><input type="number" value="${s.qtd}" oninput="updS('${s.id}','qtd',this.value)"><input type="number" value="${s.valor}" oninput="updS('${s.id}','valor',this.value)"><button class="btn btn-danger btn-sm" onclick="removeServico('${s.id}')">✕</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
 function removeServico(id) { stateOS.servicos = stateOS.servicos.filter(s => s.id !== id); renderChecklistServicos(); updateTotals(); }
 
-function renderChecklistPecas() { const el = document.getElementById('checklist-pecas'); if (!el) return; el.innerHTML = db.catalogo_pecas.map(cp => { const ativa = stateOS.pecas.find(p => p.catalogoId === cp.id); return `<button type="button" class="checklist-btn ${ativa ? 'checklist-btn-active' : ''}" onclick="togglePeca('${cp.id}', '${cp.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativa ? '✓' : '+'}</span>${cp.nome}</button>`; }).join(''); renderPecasAtivas(); }
+function renderChecklistPecas() {
+    const el = document.getElementById('checklist-pecas'); if (!el) return;
+    const termo = termoBusca('pecas');
+    const lista = termo ? db.catalogo_pecas.filter(cp => normalizarBusca(cp.nome).includes(termo)) : db.catalogo_pecas;
+    el.innerHTML = lista.map(cp => {
+        const ativa = stateOS.pecas.find(p => p.catalogoId === cp.id);
+        return `<button type="button" class="checklist-btn ${ativa ? 'checklist-btn-active' : ''}" onclick="togglePeca('${cp.id}', '${cp.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativa ? '✓' : '+'}</span>${cp.nome}</button>`;
+    }).join('') || checklistVazio('pecas', termo);
+    renderPecasAtivas();
+}
 function togglePeca(catalogoId, nome) { const idx = stateOS.pecas.findIndex(p => p.catalogoId === catalogoId); if (idx >= 0) stateOS.pecas.splice(idx, 1); else stateOS.pecas.push({ id: Date.now().toString(), catalogoId, nome: nome.toUpperCase(), qtd: 1, custo: 0, venda: 0 }); renderChecklistPecas(); updateTotals(); }
 function renderPecasAtivas() { const el = document.getElementById('pecas-ativas'); if (!el) return; el.innerHTML = stateOS.pecas.length ? `<div class="ativo-header-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span>Peça</span><span>Qtd</span><span>Custo</span><span>Venda</span><span></span></div>` + stateOS.pecas.map(p => `<div class="ativo-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span class="ativo-nome">${p.nome}</span><input type="number" value="${p.qtd}" oninput="updP('${p.id}','qtd',this.value)"><input type="number" value="${p.custo}" oninput="updP('${p.id}','custo',this.value)"><input type="number" value="${p.venda}" oninput="updP('${p.id}','venda',this.value)"><button class="btn btn-danger btn-sm" onclick="removePeca('${p.id}')">✕</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
 function removePeca(id) { stateOS.pecas = stateOS.pecas.filter(p => p.id !== id); renderChecklistPecas(); updateTotals(); }

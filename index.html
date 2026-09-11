@@ -443,10 +443,11 @@
 
             <div class="checklist-section">
                 <div class="checklist-section-title">🛠️ Serviços</div>
-                <p class="checklist-hint">Selecione os serviços:</p>
+                <p class="checklist-hint">Toque para selecionar — ou digite para buscar no catálogo:</p>
                 <div class="quick-add-row">
                     <input type="text" id="quick-servico-nome" class="quick-add-input"
-                        placeholder="Criar serviço novo e salvar no catálogo..."
+                        placeholder="Buscar ou criar serviço..."
+                        oninput="filtrarChecklist('servicos')"
                         onkeydown="if(event.key==='Enter'){event.preventDefault();addQuickServico();}">
                     <button type="button" class="btn btn-primary btn-sm quick-add-btn"
                         onclick="addQuickServico()">+ Adicionar</button>
@@ -456,10 +457,11 @@
             </div>
             <div class="checklist-section">
                 <div class="checklist-section-title">⚙️ Peças</div>
-                <p class="checklist-hint">Selecione as peças:</p>
+                <p class="checklist-hint">Toque para selecionar — ou digite para buscar no catálogo:</p>
                 <div class="quick-add-row">
                     <input type="text" id="quick-peca-nome" class="quick-add-input"
-                        placeholder="Criar peça nova e salvar no catálogo..."
+                        placeholder="Buscar ou criar peça..."
+                        oninput="filtrarChecklist('pecas')"
                         onkeydown="if(event.key==='Enter'){event.preventDefault();addQuickPeca();}">
                     <button type="button" class="btn btn-primary btn-sm quick-add-btn"
                         onclick="addQuickPeca()">+ Adicionar</button>
