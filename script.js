@@ -17,6 +17,19 @@ function getTodayString() { const tzoffset = (new Date()).getTimezoneOffset() * 
 function parseBRDateToISO(brDateStr) { if (!brDateStr) return ''; const parts = brDateStr.split('/'); if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`; return brDateStr; }
 function toast(msg, err = false) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.className = 'toast show ' + (err ? 'err' : ''); setTimeout(() => t.classList.remove('show'), 3000); }
 
+/* Falha de rede não diz nada sobre o banco: diz que o navegador nem chegou lá.
+   Mostrar o endereço tentado transforma um "Load failed" genérico em algo que
+   se resolve — dá pra ver na hora se o site está apontando pro projeto certo. */
+function mensagemErro(err) {
+    const txt = String((err && err.message) || err || 'erro desconhecido');
+    if (/load failed|failed to fetch|networkerror|network request failed/i.test(txt)) {
+        let host = supabaseUrl;
+        try { host = new URL(supabaseUrl).host; } catch (e) { }
+        return 'Sem resposta de ' + host + '. Verifique a internet do aparelho.';
+    }
+    return txt;
+}
+
 const animateValue = (elementId, start, end, duration) => {
     const obj = document.getElementById(elementId);
     if (!obj) return;
@@ -85,11 +98,11 @@ function switchTab(mode) {
 async function doLogin() {
     const userInp = document.getElementById('l-email').value.trim(); const senhaInp = document.getElementById('l-senha').value; const lembrar = document.getElementById('l-lembrar').checked;
     if (loginMode === 'login') {
-        const r1 = await supabaseClient.from('socios').select('*'); if (r1.error) { console.error("Supabase socios:", r1.error); return toast("Erro de conexão: " + r1.error.message, true); } db.socios = r1.data || [];
+        const r1 = await supabaseClient.from('socios').select('*'); if (r1.error) { console.error("Supabase socios:", r1.error); return toast("Erro de conexão: " + mensagemErro(r1.error), true); } db.socios = r1.data || [];
         const u = db.socios.find(s => (s.email.toLowerCase() === userInp.toLowerCase() || s.nome.toLowerCase() === userInp.toLowerCase()) && s.senha === senhaInp);
         if (!u) return toast("Sócio não encontrado ou senha incorreta!", true); session = { id: u.id, nome: u.nome, role: 'socio' };
     } else if (loginMode === 'mecanico') {
-        const r2 = await supabaseClient.from('mecanicos').select('*'); if (r2.error) { console.error("Supabase mecanicos:", r2.error); return toast("Erro de conexão: " + r2.error.message, true); } db.mecanicos = r2.data || [];
+        const r2 = await supabaseClient.from('mecanicos').select('*'); if (r2.error) { console.error("Supabase mecanicos:", r2.error); return toast("Erro de conexão: " + mensagemErro(r2.error), true); } db.mecanicos = r2.data || [];
         const m = db.mecanicos.find(m => m.nome.toLowerCase() === userInp.toLowerCase() && m.senha === senhaInp);
         if (!m) return toast("Mecânico não encontrado ou senha incorreta!", true); session = { id: m.id, nome: m.nome, role: 'mecanico' };
     }
@@ -102,7 +115,7 @@ function doRegister() {
     const codigo = document.getElementById('r-codigo').value.trim(); const senha = document.getElementById('r-senha').value; const confirma = document.getElementById('r-confirma').value;
     if (codigo !== CONFIG.CODIGO_SOCIOS) return toast("Código da empresa inválido!", true); if (senha !== confirma) return toast("As senhas não conferem!", true); if (!nome || !email) return toast("Preencha todos os campos!", true);
     supabaseClient.from('socios').insert([{ id: Date.now().toString(), nome, email, senha }]).then(async ({ error }) => {
-        if (error) { console.error("Registro:", error); return toast("Erro ao registrar: " + error.message, true); } await carregarDados(); toast("Conta criada! Faça login."); switchTab('login');
+        if (error) { console.error("Registro:", error); return toast("Erro ao registrar: " + mensagemErro(error), true); } await carregarDados(); toast("Conta criada! Faça login."); switchTab('login');
     });
 }
 
