@@ -929,17 +929,32 @@ tr:hover td {
 .checklist-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
+    gap: 8px;
+    /* 44px e o alvo de toque minimo recomendado: o tablet da oficina e usado
+       com a mao suja, e errar o botao custa mais que o espaco economizado. */
+    min-height: 44px;
+    padding: 10px 16px;
     background: #000;
     border: 1px solid var(--border);
-    border-radius: 20px;
+    border-radius: 22px;
     color: var(--text-dim);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
+    touch-action: manipulation;
 }
+
+.checklist-empty {
+    width: 100%;
+    margin: 4px 0 0;
+    padding: 12px 2px;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.checklist-empty strong { color: var(--brand); }
 
 .checklist-btn-active {
     background: rgba(232, 160, 32, 0.12) !important;

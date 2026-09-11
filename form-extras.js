@@ -36,6 +36,7 @@ async function addQuickServico() {
     }
 
     inp.value = '';
+    renderChecklistServicos(); // limpa o filtro da lista junto com o campo
     inp.focus();
     toast(existente ? 'Serviço selecionado!' : 'Serviço criado e salvo no catálogo!');
 }
@@ -72,6 +73,7 @@ async function addQuickPeca() {
     }
 
     inp.value = '';
+    renderChecklistPecas(); // limpa o filtro da lista junto com o campo
     inp.focus();
     toast(existente ? 'Peça selecionada!' : 'Peça criada e salva no catálogo!');
 }
