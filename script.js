@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-15.5-pagamento';
+const APP_VERSION = '2026-09-15.6-cobrancas';
 
 const CONFIG = { CODIGO_SOCIOS: 'B17021103', SESSION_KEY: 'betao_sess' };
 
@@ -114,6 +114,7 @@ function renderizarTelas() {
         try { renderDashboard(); } catch (e) { console.error(e); }
         try { renderOrcamentos(); } catch (e) { console.error(e); }
         try { renderOSKanban(); } catch (e) { console.error(e); }
+        try { renderCobrancas(); } catch (e) { console.error(e); }
         try { renderMecanicos(); } catch (e) { console.error(e); }
         try { renderRelatorios(); } catch (e) { console.error(e); }
         try { renderCatalogo(); } catch (e) { console.error(e); }
@@ -178,7 +179,7 @@ function initApp() {
                 <button class="btn btn-primary" onclick="openDocModal('orcamento')" style="background:var(--blue); width: 100%;">+ Novo Orçamento</button>
                 <button class="btn btn-primary" onclick="openDocModal('os')" style="width: 100%;">+ Nova OS</button>
             </div>
-            <button class="nav-item active" data-page="dashboard">Dashboard BI</button><button class="nav-item" data-page="orcamentos">Orçamentos</button><button class="nav-item" data-page="os">Gestão Ágil (OS)</button><button class="nav-item" data-page="mecanicos">Equipe</button><button class="nav-item" data-page="catalogo">Catálogo</button><button class="nav-item" data-page="relatorios">Relatórios</button>`;
+            <button class="nav-item active" data-page="dashboard">Dashboard BI</button><button class="nav-item" data-page="orcamentos">Orçamentos</button><button class="nav-item" data-page="os">Gestão Ágil (OS)</button><button class="nav-item" data-page="cobrancas">Cobranças</button><button class="nav-item" data-page="mecanicos">Equipe</button><button class="nav-item" data-page="catalogo">Catálogo</button><button class="nav-item" data-page="relatorios">Relatórios</button>`;
 
         document.getElementById('page-dashboard').classList.add('active'); document.getElementById('page-mec-dashboard').classList.remove('active');
         if (document.getElementById('desktop-actions-box')) document.getElementById('desktop-actions-box').style.display = 'flex';
@@ -713,6 +714,112 @@ function renderPainelMecanico() {
 let mecEditId = null; function openMecModal(editId = null) { mecEditId = editId; if (editId) { const m = db.mecanicos.find(x => x.id === editId); document.getElementById('m-nome').value = m.nome; document.getElementById('m-com').value = m.comissao; document.getElementById('m-senha').value = m.senha; document.getElementById('modal-mec-title').textContent = 'Editar Mecânico'; } else { document.getElementById('m-nome').value = ''; document.getElementById('m-com').value = ''; document.getElementById('m-senha').value = ''; document.getElementById('modal-mec-title').textContent = 'Cadastrar Mecânico'; } document.getElementById('mec-senha-visible').style.display = 'none'; document.getElementById('m-senha').type = 'password'; document.getElementById('modal-mec').style.display = 'flex'; } async function saveMec() { const nome = document.getElementById('m-nome').value.trim(); const senha = document.getElementById('m-senha').value.trim(); if (!nome || !senha) return toast("Obrigatório!", true); await supabaseClient.from('mecanicos').upsert([{ id: mecEditId || Date.now().toString(), nome, comissao: Number(document.getElementById('m-com').value), senha }]); document.getElementById('modal-mec').style.display = 'none'; mecEditId = null; await carregarDados(); toast("Salvo!"); } async function deleteMec(id) { if (confirm("Remover?")) { await supabaseClient.from('mecanicos').delete().eq('id', id); await carregarDados(); toast("Removido!"); } } function toggleSenhaMec(id) { const m = db.mecanicos.find(x => x.id === id); const el = document.getElementById(`senha-${id}`); if (el.textContent === '••••••••') { el.textContent = m.senha; el.style.color = 'var(--brand)'; } else { el.textContent = '••••••••'; el.style.color = 'var(--text-dim)'; } } function renderMecanicos() { const el = document.getElementById('mec-grid'); if (!el) return; el.innerHTML = db.mecanicos.map(m => `<div class="stat-card"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><h3 style="font-size:1rem;">${m.nome}</h3><button class="btn btn-secondary btn-sm" onclick="openMecModal('${m.id}')">✏️</button></div><div class="label" style="margin-top:12px;">Comissão Ativa</div><div class="value" style="color:var(--brand); font-size:1.4rem;">${m.comissao}%</div><div class="label" style="margin-top:12px;">Senha</div><div style="display:flex; align-items:center; gap:8px; margin-top:6px;"><span id="senha-${m.id}" style="font-size:14px; font-weight:700; color:var(--text-dim); letter-spacing:2px;">••••••••</span><button class="btn btn-ghost btn-sm" onclick="toggleSenhaMec('${m.id}')">👁</button></div><button class="btn btn-danger btn-sm" style="width:100%; margin-top:15px;" onclick="deleteMec('${m.id}')">✕ Remover</button></div>`).join('') || '<p style="text-align:center; color:var(--text-dim); width:100%;">Vazio</p>'; }
 function renderCatalogo() { const elP = document.getElementById('catalog-pecas-list'); if (elP) elP.innerHTML = db.catalogo_pecas.map(p => `<div class="catalog-item"><div class="catalog-item-info"><strong>${p.nome}</strong><span class="catalog-badge badge-peca">Peça</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('pecas', '${p.id}')">✕</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; const elS = document.getElementById('catalog-servicos-list'); if (elS) elS.innerHTML = db.catalogo_servicos.map(s => `<div class="catalog-item"><div class="catalog-item-info"><strong>${s.nome}</strong><span class="catalog-badge badge-servico">Serviço</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('servicos', '${s.id}')">✕</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; } async function addCatalogItem(type) { const inp = document.getElementById(type === 'pecas' ? 'cat-peca-nome' : 'cat-servico-nome'); const nome = inp.value.trim().toUpperCase(); if (!nome) return; await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').insert([{ id: Date.now().toString(), nome }]); inp.value = ''; await carregarDados(); toast("Adicionado!"); } async function deleteCatalogItem(type, id) { await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').delete().eq('id', id); await carregarDados(); toast("Removido!"); }
 function filterRelatorios() { renderRelatorios(); } function filterRelatoriosToday() { const t = getTodayString(); document.getElementById('r-data-inicio').value = t; document.getElementById('r-data-fim').value = t; renderRelatorios(); } function clearRelatoriosFilter() { document.getElementById('r-data-inicio').value = ''; document.getElementById('r-data-fim').value = ''; renderRelatorios(); } function renderRelatorios() { const el = document.getElementById('r-mec-body'); if (!el) return; const dIni = document.getElementById('r-data-inicio').value; const dFim = document.getElementById('r-data-fim').value; const rank = db.mecanicos.map(m => { let mo = 0, com = 0; db.os.filter(o => osConcluida(o)).forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { o.servicos.forEach(s => { if (s.mecanicoId == m.id) { mo += (Number(s.valor) * Number(s.qtd)); com += (Number(s.comissaoVal) || 0); } }); } }); return { nome: m.nome, mo, com }; }).sort((a, b) => b.mo - a.mo); el.innerHTML = rank.map(m => `<tr><td>${m.nome}</td><td>${fmt(m.mo)}</td><td style="color:var(--brand)">${fmt(m.com)}</td></tr>`).join(''); }
+/* =========================================
+   COBRANÇAS — quem deve, quanto e há quanto tempo
+   O universo aqui é só OS concluída (finalizada ou entregue). Serviço que
+   ainda está na bancada não é cobrança, e manter esse mesmo recorte faz o
+   total bater exatamente com o card "A RECEBER" do painel.
+========================================= */
+let filtroCobranca = 'receber';
+
+const FILTROS_COBRANCA = {
+    receber: { label: 'Total a receber', teste: (o) => o.pagamento !== 'pago' },
+    parcial: { label: 'Falta acertar', teste: (o) => o.pagamento === 'parcial' },
+    pago: { label: 'Total recebido', teste: (o) => o.pagamento === 'pago' },
+    todos: { label: 'Total concluído', teste: () => true },
+};
+
+function setFiltroCobranca(f) {
+    filtroCobranca = FILTROS_COBRANCA[f] ? f : 'receber';
+    document.querySelectorAll('#cobranca-filtros [data-cob]').forEach(b => {
+        const ativo = b.getAttribute('data-cob') === filtroCobranca;
+        b.classList.toggle('btn-primary', ativo);
+        b.classList.toggle('btn-secondary', !ativo);
+    });
+    renderCobrancas();
+}
+
+function irParaCobrancas() {
+    const btn = document.querySelector('.nav-item[data-page="cobrancas"]');
+    if (btn) btn.click();
+    setFiltroCobranca('receber');
+}
+
+/* Dias desde que a OS foi registrada. É o que dá urgência à cobrança:
+   "500 reais" incomoda menos que "500 reais parados há 90 dias". */
+function diasEmAberto(o) {
+    const iso = o.dataISO || parseBRDateToISO(o.data);
+    if (!iso) return 0;
+    const dia = new Date(iso + 'T00:00:00');
+    if (isNaN(dia)) return 0;
+    return Math.max(0, Math.floor((Date.now() - dia.getTime()) / 86400000));
+}
+
+async function quitarOS(id) {
+    const o = db.os.find(x => x.id == id);
+    if (!o) return;
+    if (!confirm(`Marcar a OS #${o.id} de ${o.cliente || 'sem nome'} como PAGA?\n\nValor: ${fmt(o.total)}`)) return;
+    const { error } = await supabaseClient.from('os')
+        .update({ pagamento: 'pago', valor_pago: Number(o.total) || 0 }).eq('id', o.id);
+    if (error) { console.error(error); return toast('Erro ao quitar: ' + mensagemErro(error), true); }
+    await carregarDados();
+    toast('OS #' + o.id + ' quitada!');
+}
+
+function renderCobrancas() {
+    const el = document.getElementById('cob-tbody'); if (!el) return;
+    const filtro = FILTROS_COBRANCA[filtroCobranca] || FILTROS_COBRANCA.receber;
+
+    // Mais antiga primeiro: a fila de cobrança começa por quem deve há mais tempo.
+    const lista = db.os.filter(o => osConcluida(o) && filtro.teste(o))
+        .sort((a, b) => diasEmAberto(b) - diasEmAberto(a) || Number(b.id) - Number(a.id));
+
+    const soma = lista.reduce((a, o) => a + (filtroCobranca === 'pago' ? (Number(o.valor_pago) || 0) : aReceberDaOS(o)), 0);
+
+    const elLabel = document.getElementById('cob-label-total');
+    if (elLabel) elLabel.textContent = filtro.label;
+    const elTotal = document.getElementById('cob-total');
+    if (elTotal) elTotal.textContent = fmt(soma);
+    const elQtd = document.getElementById('cob-qtd');
+    if (elQtd) elQtd.textContent = lista.length + (lista.length === 1 ? ' ordem' : ' ordens');
+
+    const emAberto = lista.filter(o => aReceberDaOS(o) > 0);
+    const elAntiga = document.getElementById('cob-antiga');
+    const elAntigaInfo = document.getElementById('cob-antiga-info');
+    if (elAntiga && elAntigaInfo) {
+        if (emAberto.length) {
+            const velha = emAberto[0];
+            elAntiga.textContent = diasEmAberto(velha) + ' dias';
+            elAntigaInfo.textContent = '#' + velha.id + ' · ' + (velha.cliente || 'sem nome') + ' · ' + fmt(aReceberDaOS(velha));
+        } else {
+            elAntiga.textContent = '--';
+            elAntigaInfo.textContent = 'Nada em aberto';
+        }
+    }
+
+    el.innerHTML = lista.map(o => {
+        const falta = aReceberDaOS(o);
+        const dias = diasEmAberto(o);
+        // Vermelho a partir de 30 dias: é quando a conversa deixa de ser lembrete.
+        const corDias = falta > 0 && dias >= 30 ? 'var(--danger)' : 'var(--text-dim)';
+        return `<tr>
+            <td>#${o.id}</td>
+            <td>${o.data || '--'}</td>
+            <td style="color:${corDias}; font-weight:700;">${dias}</td>
+            <td>${o.cliente || 'Sem nome'}</td>
+            <td>${o.veiculo || ''} ${o.placa ? '· ' + o.placa : ''}</td>
+            <td>${fmt(o.total)}</td>
+            <td style="color:var(--success);">${fmt(o.valor_pago)}</td>
+            <td style="color:${falta > 0 ? 'var(--danger)' : 'var(--text-dim)'}; font-weight:700;">${fmt(falta)}</td>
+            <td>${nomeForma(o.forma_pagamento) || '--'}</td>
+            <td style="white-space:nowrap;">
+                ${falta > 0 ? `<button class="btn btn-success btn-sm" onclick="quitarOS('${o.id}')">✓ Quitar</button>` : ''}
+                <button class="btn btn-secondary btn-sm" onclick="openDocModal('os','${o.id}')">✏️ Abrir</button>
+            </td>
+        </tr>`;
+    }).join('') || `<tr><td colspan="10" style="text-align:center; color:var(--text-dim);">Nenhuma ordem nesta situação.</td></tr>`;
+}
+
 function handlePhotoUpload(e) { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.readAsDataURL(f); r.onload = (ev) => { const img = new Image(); img.src = ev.target.result; img.onload = () => { const canvas = document.createElement('canvas'); const MAX = 600; const scale = MAX / img.width; canvas.width = MAX; canvas.height = img.height * scale; canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); const prev = document.getElementById('d-foto-preview'); if (prev) { prev.src = canvas.toDataURL('image/jpeg', 0.6); prev.style.display = 'block'; } } }; }
 
 function configurarCliquesNav() {
