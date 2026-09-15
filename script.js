@@ -2,12 +2,17 @@
    1. INICIALIZAÇÃO E NUVEM (SUPABASE)
 ========================================= */
 const supabaseUrl = 'https://ccvlaywiyvrixduvbccj.supabase.co';
-const supabaseKey = 'sb_publishable_CB2fioqF__O8x_Vt4MBVsg_axk7Ui2J';
+/* Chave anon clássica (JWT). A chave nova, formato sb_publishable_, é a
+   recomendada pelo Supabase, mas com ela o app falhava no celular e no tablet
+   com erro genérico de rede — o sintoma de uma recusa que acontece antes dos
+   cabeçalhos de CORS. Outro app no mesmo projeto, usado nestes aparelhos,
+   funciona com esta chave. Voltando para o que é comprovado. */
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjdmxheXdpeXZyaXhkdXZiY2NqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2MDYwNjYsImV4cCI6MjEwMzE4MjA2Nn0.-w74-5PkzuTbxMbQejDbaXmcLuQ_P4S_w8j_YXqVrRQ';
 const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-15.1';
+const APP_VERSION = '2026-09-15.2-chave-anon';
 
 const CONFIG = { CODIGO_SOCIOS: 'B17021103', SESSION_KEY: 'betao_sess' };
 let db = { socios: [], os: [], mecanicos: [], catalogo_pecas: [], catalogo_servicos: [] };
