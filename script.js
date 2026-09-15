@@ -12,9 +12,9 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-15.6-cobrancas';
+const APP_VERSION = '2026-09-15.7-senhas-com-hash';
 
-const CONFIG = { CODIGO_SOCIOS: 'B17021103', SESSION_KEY: 'betao_sess' };
+const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
 /* DOIS EIXOS INDEPENDENTES
    status    = onde o serviço está (orçamento → aberta → andamento → finalizada → entregue)
@@ -53,7 +53,7 @@ const aReceberDaOS = (o) => Math.max(0, (Number(o.total) || 0) - (Number(o.valor
 
 /* Só conta na carteira o que já foi produzido e ainda não foi quitado. */
 const osNaCarteira = (o) => osConcluida(o) && o.pagamento !== 'pago' && aReceberDaOS(o) > 0;
-let db = { socios: [], os: [], mecanicos: [], catalogo_pecas: [], catalogo_servicos: [] };
+let db = { os: [], mecanicos: [], catalogo_pecas: [], catalogo_servicos: [] };
 let session = null; let loginMode = 'login';
 let stateOS = { editId: null, type: 'os', servicos: [], pecas: [], fotoBase64: null };
 
@@ -96,7 +96,7 @@ const animateValue = (elementId, start, end, duration) => {
 async function carregarDados() {
     if (!supabaseClient) return;
     // Carrega cada tabela isoladamente: um erro numa não derruba as outras.
-    const tabelas = ['socios', 'mecanicos', 'os', 'catalogo_pecas', 'catalogo_servicos'];
+    const tabelas = ['mecanicos', 'os', 'catalogo_pecas', 'catalogo_servicos'];   // socios não é mais legível: o login é por função
     for (const t of tabelas) {
         try {
             const { data, error } = await supabaseClient.from(t).select('*');
@@ -125,7 +125,6 @@ function renderizarTelas() {
 
 if (supabaseClient) {
     supabaseClient.channel('custom-all-channel')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'socios' }, () => carregarDados())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'os' }, () => carregarDados())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mecanicos' }, () => carregarDados())
         .subscribe();
@@ -145,26 +144,42 @@ function switchTab(mode) {
 
 async function doLogin() {
     const userInp = document.getElementById('l-email').value.trim(); const senhaInp = document.getElementById('l-senha').value; const lembrar = document.getElementById('l-lembrar').checked;
+    /* A conferência da senha acontece DENTRO do banco. O navegador manda usuário
+       e senha e recebe de volta só o id e o nome — o hash nunca sai de lá.
+       Antes esta tela baixava a tabela de sócios inteira, com as senhas em
+       texto puro, antes mesmo de alguém digitar qualquer coisa. */
+    if (!userInp || !senhaInp) return toast("Preencha usuário e senha!", true);
+
     if (loginMode === 'login') {
-        const r1 = await supabaseClient.from('socios').select('*'); if (r1.error) { console.error("Supabase socios:", r1.error); return toast("Erro de conexão: " + mensagemErro(r1.error), true); } db.socios = r1.data || [];
-        const u = db.socios.find(s => (s.email.toLowerCase() === userInp.toLowerCase() || s.nome.toLowerCase() === userInp.toLowerCase()) && s.senha === senhaInp);
-        if (!u) return toast("Sócio não encontrado ou senha incorreta!", true); session = { id: u.id, nome: u.nome, role: 'socio' };
+        const { data, error } = await supabaseClient.rpc('login_socio', { p_user: userInp, p_senha: senhaInp });
+        if (error) { console.error("Login sócio:", error); return toast("Erro de conexão: " + mensagemErro(error), true); }
+        const u = (data || [])[0];
+        if (!u) return toast("Sócio não encontrado ou senha incorreta!", true);
+        session = { id: u.id, nome: u.nome, role: 'socio' };
     } else if (loginMode === 'mecanico') {
-        const r2 = await supabaseClient.from('mecanicos').select('*'); if (r2.error) { console.error("Supabase mecanicos:", r2.error); return toast("Erro de conexão: " + mensagemErro(r2.error), true); } db.mecanicos = r2.data || [];
-        const m = db.mecanicos.find(m => m.nome.toLowerCase() === userInp.toLowerCase() && m.senha === senhaInp);
-        if (!m) return toast("Mecânico não encontrado ou senha incorreta!", true); session = { id: m.id, nome: m.nome, role: 'mecanico' };
+        const { data, error } = await supabaseClient.rpc('login_mecanico', { p_nome: userInp, p_senha: senhaInp });
+        if (error) { console.error("Login mecânico:", error); return toast("Erro de conexão: " + mensagemErro(error), true); }
+        const m = (data || [])[0];
+        if (!m) return toast("Mecânico não encontrado ou senha incorreta!", true);
+        session = { id: m.id, nome: m.nome, role: 'mecanico' };
     }
     if (lembrar) localStorage.setItem(CONFIG.SESSION_KEY, JSON.stringify(session)); else sessionStorage.setItem(CONFIG.SESSION_KEY, JSON.stringify(session));
     initApp();
 }
 
-function doRegister() {
+async function doRegister() {
     const nome = document.getElementById('r-nome').value.trim(); const email = document.getElementById('r-email').value.trim();
     const codigo = document.getElementById('r-codigo').value.trim(); const senha = document.getElementById('r-senha').value; const confirma = document.getElementById('r-confirma').value;
-    if (codigo !== CONFIG.CODIGO_SOCIOS) return toast("Código da empresa inválido!", true); if (senha !== confirma) return toast("As senhas não conferem!", true); if (!nome || !email) return toast("Preencha todos os campos!", true);
-    supabaseClient.from('socios').insert([{ id: Date.now().toString(), nome, email, senha }]).then(async ({ error }) => {
-        if (error) { console.error("Registro:", error); return toast("Erro ao registrar: " + mensagemErro(error), true); } await carregarDados(); toast("Conta criada! Faça login."); switchTab('login');
-    });
+    if (senha !== confirma) return toast("As senhas não conferem!", true);
+    if (!nome || !email) return toast("Preencha todos os campos!", true);
+
+    /* O código da empresa é conferido no banco, não aqui. Antes ele estava
+       escrito neste arquivo, ou seja, à vista de quem abrisse o código-fonte
+       da página — qualquer um podia se cadastrar como sócio. */
+    const { error } = await supabaseClient.rpc('registrar_socio',
+        { p_nome: nome, p_email: email, p_senha: senha, p_codigo: codigo });
+    if (error) { console.error("Registro:", error); return toast(mensagemErro(error), true); }
+    toast("Conta criada! Faça login."); switchTab('login');
 }
 
 function initApp() {
@@ -711,7 +726,66 @@ function renderPainelMecanico() {
     if (elOrc) elOrc.innerHTML = orcHtml.join('') || '<tr><td colspan="3" style="text-align:center;">Nenhuma solicitação.</td></tr>';
 }
 
-let mecEditId = null; function openMecModal(editId = null) { mecEditId = editId; if (editId) { const m = db.mecanicos.find(x => x.id === editId); document.getElementById('m-nome').value = m.nome; document.getElementById('m-com').value = m.comissao; document.getElementById('m-senha').value = m.senha; document.getElementById('modal-mec-title').textContent = 'Editar Mecânico'; } else { document.getElementById('m-nome').value = ''; document.getElementById('m-com').value = ''; document.getElementById('m-senha').value = ''; document.getElementById('modal-mec-title').textContent = 'Cadastrar Mecânico'; } document.getElementById('mec-senha-visible').style.display = 'none'; document.getElementById('m-senha').type = 'password'; document.getElementById('modal-mec').style.display = 'flex'; } async function saveMec() { const nome = document.getElementById('m-nome').value.trim(); const senha = document.getElementById('m-senha').value.trim(); if (!nome || !senha) return toast("Obrigatório!", true); await supabaseClient.from('mecanicos').upsert([{ id: mecEditId || Date.now().toString(), nome, comissao: Number(document.getElementById('m-com').value), senha }]); document.getElementById('modal-mec').style.display = 'none'; mecEditId = null; await carregarDados(); toast("Salvo!"); } async function deleteMec(id) { if (confirm("Remover?")) { await supabaseClient.from('mecanicos').delete().eq('id', id); await carregarDados(); toast("Removido!"); } } function toggleSenhaMec(id) { const m = db.mecanicos.find(x => x.id === id); const el = document.getElementById(`senha-${id}`); if (el.textContent === '••••••••') { el.textContent = m.senha; el.style.color = 'var(--brand)'; } else { el.textContent = '••••••••'; el.style.color = 'var(--text-dim)'; } } function renderMecanicos() { const el = document.getElementById('mec-grid'); if (!el) return; el.innerHTML = db.mecanicos.map(m => `<div class="stat-card"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><h3 style="font-size:1rem;">${m.nome}</h3><button class="btn btn-secondary btn-sm" onclick="openMecModal('${m.id}')">✏️</button></div><div class="label" style="margin-top:12px;">Comissão Ativa</div><div class="value" style="color:var(--brand); font-size:1.4rem;">${m.comissao}%</div><div class="label" style="margin-top:12px;">Senha</div><div style="display:flex; align-items:center; gap:8px; margin-top:6px;"><span id="senha-${m.id}" style="font-size:14px; font-weight:700; color:var(--text-dim); letter-spacing:2px;">••••••••</span><button class="btn btn-ghost btn-sm" onclick="toggleSenhaMec('${m.id}')">👁</button></div><button class="btn btn-danger btn-sm" style="width:100%; margin-top:15px;" onclick="deleteMec('${m.id}')">✕ Remover</button></div>`).join('') || '<p style="text-align:center; color:var(--text-dim); width:100%;">Vazio</p>'; }
+let mecEditId = null;
+
+/* A senha do mecânico não pode mais ser LIDA — só substituída. O hash fica no
+   banco e não volta para o navegador. Por isso, ao editar, o campo abre vazio:
+   em branco mantém a atual, preenchido troca. */
+function openMecModal(editId = null) {
+    mecEditId = editId;
+    const campoSenha = document.getElementById('m-senha');
+    const dica = document.getElementById('mec-senha-dica');
+    if (editId) {
+        const m = db.mecanicos.find(x => x.id === editId);
+        document.getElementById('m-nome').value = m.nome;
+        document.getElementById('m-com').value = m.comissao;
+        document.getElementById('modal-mec-title').textContent = 'Editar Mecânico';
+        if (dica) dica.textContent = 'Deixe em branco para manter a senha atual.';
+    } else {
+        document.getElementById('m-nome').value = '';
+        document.getElementById('m-com').value = '';
+        document.getElementById('modal-mec-title').textContent = 'Cadastrar Mecânico';
+        if (dica) dica.textContent = 'Esta será a senha que ele usa para entrar pelo celular.';
+    }
+    if (campoSenha) { campoSenha.value = ''; campoSenha.type = 'password'; }
+    const visivel = document.getElementById('mec-senha-visible');
+    if (visivel) visivel.style.display = 'none';
+    document.getElementById('modal-mec').style.display = 'flex';
+}
+
+async function saveMec() {
+    const nome = document.getElementById('m-nome').value.trim();
+    const senha = document.getElementById('m-senha').value.trim();
+    if (!nome) return toast("Informe o nome!", true);
+    if (!mecEditId && !senha) return toast("Defina uma senha para o novo mecânico!", true);
+
+    const { error } = await supabaseClient.rpc('salvar_mecanico', {
+        p_id: mecEditId || '',
+        p_nome: nome,
+        p_comissao: Number(document.getElementById('m-com').value) || 0,
+        p_senha: senha,
+    });
+    if (error) { console.error("Salvar mecânico:", error); return toast(mensagemErro(error), true); }
+
+    document.getElementById('modal-mec').style.display = 'none';
+    mecEditId = null;
+    await carregarDados();
+    toast(senha ? "Salvo! Senha definida." : "Salvo!");
+}
+
+async function deleteMec(id) {
+    const m = db.mecanicos.find(x => x.id === id);
+    if (!confirm(`Remover ${m ? m.nome : 'este mecânico'}?\n\nAs OS que ele já fez continuam no sistema, mas a comissão dele some dos relatórios.`)) return;
+    const { error } = await supabaseClient.rpc('deletar_mecanico', { p_id: id });
+    if (error) { console.error("Remover mecânico:", error); return toast(mensagemErro(error), true); }
+    await carregarDados();
+    toast("Removido!");
+}
+
+function renderMecanicos() {
+    const el = document.getElementById('mec-grid'); if (!el) return;
+    el.innerHTML = db.mecanicos.map(m => `<div class="stat-card"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><h3 style="font-size:1rem;">${m.nome}</h3><button class="btn btn-secondary btn-sm" onclick="openMecModal('${m.id}')">✏️</button></div><div class="label" style="margin-top:12px;">Comissão Ativa</div><div class="value" style="color:var(--brand); font-size:1.4rem;">${m.comissao}%</div><div class="label" style="margin-top:12px;">Senha</div><div style="font-size:12px; color:var(--text-dim); margin-top:6px;">Guardada com segurança. Para trocar, toque em ✏️.</div><button class="btn btn-danger btn-sm" style="width:100%; margin-top:15px;" onclick="deleteMec('${m.id}')">✕ Remover</button></div>`).join('') || '<p style="text-align:center; color:var(--text-dim); width:100%;">Vazio</p>';
+}
 function renderCatalogo() { const elP = document.getElementById('catalog-pecas-list'); if (elP) elP.innerHTML = db.catalogo_pecas.map(p => `<div class="catalog-item"><div class="catalog-item-info"><strong>${p.nome}</strong><span class="catalog-badge badge-peca">Peça</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('pecas', '${p.id}')">✕</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; const elS = document.getElementById('catalog-servicos-list'); if (elS) elS.innerHTML = db.catalogo_servicos.map(s => `<div class="catalog-item"><div class="catalog-item-info"><strong>${s.nome}</strong><span class="catalog-badge badge-servico">Serviço</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('servicos', '${s.id}')">✕</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; } async function addCatalogItem(type) { const inp = document.getElementById(type === 'pecas' ? 'cat-peca-nome' : 'cat-servico-nome'); const nome = inp.value.trim().toUpperCase(); if (!nome) return; await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').insert([{ id: Date.now().toString(), nome }]); inp.value = ''; await carregarDados(); toast("Adicionado!"); } async function deleteCatalogItem(type, id) { await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').delete().eq('id', id); await carregarDados(); toast("Removido!"); }
 function filterRelatorios() { renderRelatorios(); } function filterRelatoriosToday() { const t = getTodayString(); document.getElementById('r-data-inicio').value = t; document.getElementById('r-data-fim').value = t; renderRelatorios(); } function clearRelatoriosFilter() { document.getElementById('r-data-inicio').value = ''; document.getElementById('r-data-fim').value = ''; renderRelatorios(); } function renderRelatorios() { const el = document.getElementById('r-mec-body'); if (!el) return; const dIni = document.getElementById('r-data-inicio').value; const dFim = document.getElementById('r-data-fim').value; const rank = db.mecanicos.map(m => { let mo = 0, com = 0; db.os.filter(o => osConcluida(o)).forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { o.servicos.forEach(s => { if (s.mecanicoId == m.id) { mo += (Number(s.valor) * Number(s.qtd)); com += (Number(s.comissaoVal) || 0); } }); } }); return { nome: m.nome, mo, com }; }).sort((a, b) => b.mo - a.mo); el.innerHTML = rank.map(m => `<tr><td>${m.nome}</td><td>${fmt(m.mo)}</td><td style="color:var(--brand)">${fmt(m.com)}</td></tr>`).join(''); }
 /* =========================================
