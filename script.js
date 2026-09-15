@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-15.3-mais-usados';
+const APP_VERSION = '2026-09-15.4-os-sem-colisao';
 
 const CONFIG = { CODIGO_SOCIOS: 'B17021103', SESSION_KEY: 'betao_sess' };
 let db = { socios: [], os: [], mecanicos: [], catalogo_pecas: [], catalogo_servicos: [] };
@@ -495,8 +495,10 @@ async function saveDoc() {
         const data = { id, cliente: clienteU, veiculo: veiculoU, modelo: modeloU, placa: placaU, km: document.getElementById('d-km').value, motor: motorU, status: statusDoc, servicos: stateOS.servicos, pecas: stateOS.pecas, maoObra: tMO, custoPecas: cP, receitaPecas: rP, total: tot, lucro: tot - tCom - cP, comissao: tCom, data: dataRegistro, dataISO: dataISORegistro };
 
         // TUDO VAI PARA A TABELA OS AGORA
-        const { error } = await supabaseClient.from('os').upsert([data]);
-        if (error) { console.error("Erro banco:", error); return toast("Erro no banco. ID fora de alcance.", true); }
+        const erroGravar = stateOS.editId
+            ? (await supabaseClient.from('os').update(data).eq('id', id)).error
+            : await inserirNovoDoc(data);
+        if (erroGravar) { console.error("Erro banco:", erroGravar); return toast("Erro ao gravar: " + mensagemErro(erroGravar), true); }
 
         if (document.getElementById('modal-doc')) document.getElementById('modal-doc').style.display = 'none';
         await carregarDados();
@@ -504,6 +506,34 @@ async function saveDoc() {
     } catch (e) {
         console.error("Erro ao salvar:", e); toast("Erro interno ao salvar.", true);
     }
+}
+
+/* NÚMERO DA OS SEM ATROPELAMENTO
+   O número é sequencial (maxId + 1) porque é o que a oficina anota no papel.
+   Só que dois aparelhos podem gerar o MESMO número ao mesmo tempo: o dono no
+   tablet abrindo uma OS enquanto o mecânico no celular pede um orçamento.
+   Com upsert, o segundo sobrescrevia o primeiro por inteiro — sem erro na
+   tela, sem rastro, levando junto a comissão de quem trabalhou.
+
+   Agora usa insert: se o número já existe, o banco recusa (23505) em vez de
+   sobrescrever. Aí relemos o último número e tentamos o seguinte. */
+async function proximoIdOS() {
+    const { data, error } = await supabaseClient.from('os').select('id');
+    if (error) return null;
+    const maior = (data || []).reduce((m, o) => Math.max(m, Number(o.id) || 0), 0);
+    return (maior + 1).toString();
+}
+
+async function inserirNovoDoc(data) {
+    for (let tentativa = 0; tentativa < 5; tentativa++) {
+        const { error } = await supabaseClient.from('os').insert([data]);
+        if (!error) return null;
+        if (error.code !== '23505') return error;   // erro de verdade, não colisão
+        const novoId = await proximoIdOS();
+        if (!novoId) return error;
+        data.id = novoId;
+    }
+    return { message: 'Não foi possível reservar um número para esta OS. Tente de novo.' };
 }
 
 async function convertOrcamentoToOS() {
