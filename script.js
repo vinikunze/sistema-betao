@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-15.2-chave-anon';
+const APP_VERSION = '2026-09-15.3-mais-usados';
 
 const CONFIG = { CODIGO_SOCIOS: 'B17021103', SESSION_KEY: 'betao_sess' };
 let db = { socios: [], os: [], mecanicos: [], catalogo_pecas: [], catalogo_servicos: [] };
@@ -374,6 +374,59 @@ function termoBusca(tipo) {
 
 function filtrarChecklist(tipo) { if (tipo === 'pecas') renderChecklistPecas(); else renderChecklistServicos(); }
 
+/* MAIS USADOS
+   Conta quantas vezes cada item do catálogo já foi lançado em OS e sobe os
+   mais frequentes para o topo. Com quase 100 itens cadastrados, os poucos que
+   a oficina lança todo dia ficam ao alcance do dedo sem rolar nem buscar.
+   Sem histórico nenhum, nada muda: tudo cai no grupo de baixo. */
+const TOPO_MAIS_USADOS = 8;
+let cacheUsos = { chave: null, servicos: new Map(), pecas: new Map() };
+
+function contarUsos() {
+    // Recontar a cada toque seria desperdício: o histórico só muda ao gravar OS.
+    const chave = db.os.length + ':' + (db.os.length ? db.os[db.os.length - 1].id : '');
+    if (cacheUsos.chave === chave) return cacheUsos;
+    const servicos = new Map(), pecas = new Map();
+    db.os.forEach(o => {
+        (o.servicos || []).forEach(sv => { if (sv.catalogoId) servicos.set(sv.catalogoId, (servicos.get(sv.catalogoId) || 0) + 1); });
+        (o.pecas || []).forEach(pc => { if (pc.catalogoId) pecas.set(pc.catalogoId, (pecas.get(pc.catalogoId) || 0) + 1); });
+    });
+    cacheUsos = { chave, servicos, pecas };
+    return cacheUsos;
+}
+
+function separarMaisUsados(lista, usos) {
+    // sort é estável: itens com a mesma contagem mantêm a ordem do catálogo.
+    const topo = lista.filter(i => (usos.get(i.id) || 0) > 0)
+        .sort((a, b) => (usos.get(b.id) || 0) - (usos.get(a.id) || 0))
+        .slice(0, TOPO_MAIS_USADOS);
+    const noTopo = new Set(topo.map(i => i.id));
+    return { topo, resto: lista.filter(i => !noTopo.has(i.id)) };
+}
+
+function botaoChecklist(tipo, item) {
+    const ativo = tipo === 'pecas'
+        ? stateOS.pecas.find(p => p.catalogoId === item.id)
+        : stateOS.servicos.find(sv => sv.catalogoId === item.id);
+    const acao = tipo === 'pecas' ? 'togglePeca' : 'toggleServico';
+    return `<button type="button" class="checklist-btn ${ativo ? 'checklist-btn-active' : ''}" onclick="${acao}('${item.id}', '${item.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativo ? '✓' : '+'}</span>${item.nome}</button>`;
+}
+
+function montarChecklist(tipo, lista, termo) {
+    const usos = tipo === 'pecas' ? contarUsos().pecas : contarUsos().servicos;
+    const botao = (i) => botaoChecklist(tipo, i);
+    // Numa lista já filtrada, separar em grupos vira ruído: ordena e pronto.
+    if (termo) {
+        return lista.slice()
+            .sort((a, b) => (usos.get(b.id) || 0) - (usos.get(a.id) || 0))
+            .map(botao).join('');
+    }
+    const { topo, resto } = separarMaisUsados(lista, usos);
+    if (!topo.length) return lista.map(botao).join('');
+    return '<div class="checklist-grupo">★ Mais usados</div>' + topo.map(botao).join('')
+        + '<div class="checklist-grupo">Todos</div>' + resto.map(botao).join('');
+}
+
 function checklistVazio(tipo, termo) {
     const label = tipo === 'pecas' ? 'peça' : 'serviço';
     if (!termo) return `<p class="checklist-empty">Nenhum${tipo === 'pecas' ? 'a' : ''} ${label} no catálogo ainda.</p>`;
@@ -384,10 +437,7 @@ function renderChecklistServicos() {
     const el = document.getElementById('checklist-servicos'); if (!el) return;
     const termo = termoBusca('servicos');
     const lista = termo ? db.catalogo_servicos.filter(cs => normalizarBusca(cs.nome).includes(termo)) : db.catalogo_servicos;
-    el.innerHTML = lista.map(cs => {
-        const ativo = stateOS.servicos.find(s => s.catalogoId === cs.id);
-        return `<button type="button" class="checklist-btn ${ativo ? 'checklist-btn-active' : ''}" onclick="toggleServico('${cs.id}', '${cs.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativo ? '✓' : '+'}</span>${cs.nome}</button>`;
-    }).join('') || checklistVazio('servicos', termo);
+    el.innerHTML = montarChecklist('servicos', lista, termo) || checklistVazio('servicos', termo);
     renderServicosAtivos();
 }
 function toggleServico(catalogoId, nome) { const idx = stateOS.servicos.findIndex(s => s.catalogoId === catalogoId); if (idx >= 0) stateOS.servicos.splice(idx, 1); else stateOS.servicos.push({ id: Date.now().toString(), catalogoId, descricao: nome.toUpperCase(), mecanicoId: (session.role === 'mecanico' ? session.id : ''), qtd: 1, valor: 0 }); renderChecklistServicos(); updateTotals(); }
@@ -398,10 +448,7 @@ function renderChecklistPecas() {
     const el = document.getElementById('checklist-pecas'); if (!el) return;
     const termo = termoBusca('pecas');
     const lista = termo ? db.catalogo_pecas.filter(cp => normalizarBusca(cp.nome).includes(termo)) : db.catalogo_pecas;
-    el.innerHTML = lista.map(cp => {
-        const ativa = stateOS.pecas.find(p => p.catalogoId === cp.id);
-        return `<button type="button" class="checklist-btn ${ativa ? 'checklist-btn-active' : ''}" onclick="togglePeca('${cp.id}', '${cp.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativa ? '✓' : '+'}</span>${cp.nome}</button>`;
-    }).join('') || checklistVazio('pecas', termo);
+    el.innerHTML = montarChecklist('pecas', lista, termo) || checklistVazio('pecas', termo);
     renderPecasAtivas();
 }
 function togglePeca(catalogoId, nome) { const idx = stateOS.pecas.findIndex(p => p.catalogoId === catalogoId); if (idx >= 0) stateOS.pecas.splice(idx, 1); else stateOS.pecas.push({ id: Date.now().toString(), catalogoId, nome: nome.toUpperCase(), qtd: 1, custo: 0, venda: 0 }); renderChecklistPecas(); updateTotals(); }
