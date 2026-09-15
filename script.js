@@ -5,6 +5,10 @@ const supabaseUrl = 'https://ccvlaywiyvrixduvbccj.supabase.co';
 const supabaseKey = 'sb_publishable_CB2fioqF__O8x_Vt4MBVsg_axk7Ui2J';
 const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
 
+/* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
+   na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
+const APP_VERSION = '2026-09-15.1';
+
 const CONFIG = { CODIGO_SOCIOS: 'B17021103', SESSION_KEY: 'betao_sess' };
 let db = { socios: [], os: [], mecanicos: [], catalogo_pecas: [], catalogo_servicos: [] };
 let session = null; let loginMode = 'login';

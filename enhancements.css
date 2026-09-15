@@ -469,3 +469,67 @@ textarea:focus {
     .revenue-hero .chart-container { height: 240px; }
     .period-tab { padding: 6px 10px; font-size: .72rem; }
 }
+
+/* =====================================================
+   TESTE DE CONEXÃO (tela de login)
+   ===================================================== */
+.diag-link {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 18px;
+    padding: 12px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-size: 13px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.diag-link:hover { color: var(--brand); border-color: var(--brand); }
+
+.diag-box {
+    display: none;
+    margin: 16px 0 4px;
+    padding: 14px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.diag-titulo {
+    margin: 0 0 10px;
+    color: var(--brand);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.diag-linha {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-top: 1px solid var(--border);
+}
+
+.diag-linha span { color: var(--text-dim); }
+.diag-linha strong { color: var(--text-main); font-weight: 600; text-align: right; word-break: break-word; }
+
+.diag-conclusao {
+    margin: 14px 0 12px;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 3px solid;
+}
+
+.diag-ok    { border-color: var(--success); background: rgba(46, 204, 113, 0.10); }
+.diag-aviso { border-color: var(--brand);   background: rgba(232, 160, 32, 0.10); }
+.diag-erro  { border-color: var(--danger);  background: rgba(231, 76, 60, 0.10); }
