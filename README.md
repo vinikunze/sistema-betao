@@ -22,9 +22,15 @@ O schema está versionado em `supabase/migrations/`. Para recriar tudo do zero e
 
 A chave usada no frontend é a **chave anon clássica (JWT)**, não a `sb_publishable_...`. Com a chave publicável o app falhava no celular e no tablet com erro genérico de rede. Credenciais administrativas nunca devem entrar no repositório nem ser enviadas ao navegador.
 
-### Acesso aos dados
+### Senhas e acesso
 
-Como o app não usa Supabase Auth, as cinco tabelas acima ficam liberadas para leitura e escrita por qualquer pessoa que tenha a URL do site, e as senhas de sócios e mecânicos são guardadas em texto puro. Isso é aceitável para uso interno, mas se os mecânicos passarem a acessar de fora, vale migrar o login para o Supabase Auth e restringir as políticas de RLS.
+As senhas ficam com **hash bcrypt** na tabela `credenciais`, que não tem nenhuma policy de RLS e portanto é inalcançável pela chave pública. O login acontece dentro do banco, por funções `SECURITY DEFINER` (`login_socio`, `login_mecanico`): o app manda usuário e senha e recebe de volta só o id e o nome.
+
+Antes, as senhas eram texto puro e a tela de login baixava a tabela de sócios inteira para comparar no navegador — qualquer pessoa com o endereço do site lia a senha do dono antes de digitar qualquer coisa. A tabela `socios` deixou de ser legível pela chave pública, e o código da empresa saiu do `script.js` para a tabela `config_app`.
+
+Cadastro de sócio e de mecânico também passam por funções (`registrar_socio`, `salvar_mecanico`, `deletar_mecanico`), que validam o código da empresa e geram o hash no servidor.
+
+**O que ainda falta.** As tabelas `os`, `mecanicos` e os catálogos continuam liberados para leitura e escrita por quem tiver a URL do site, porque o app ainda usa a chave pública sem Supabase Auth. Ou seja: as senhas estão protegidas, mas os dados não. Fechar isso exige migrar para Supabase Auth e escrever políticas de RLS baseadas em `auth.uid()`, de forma que o mecânico enxergue apenas as OS dele.
 
 ## Diagnóstico
 
