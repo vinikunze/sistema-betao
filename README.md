@@ -16,7 +16,9 @@ O `netlify.toml` continua no repositório para o caso de o Netlify ser religado 
 
 O frontend usa Supabase. O projeto é o **"lua de mel"** (`ccvlaywiyvrixduvbccj`, região `sa-east-1`), compartilhado com os outros sistemas pessoais — as tabelas do Betão têm nomes próprios e não colidem com as demais.
 
-Tabelas usadas: `socios`, `mecanicos`, `os`, `catalogo_pecas` e `catalogo_servicos`. Orçamentos e ordens de serviço ficam juntos em `os`, separados pela coluna `status`.
+Tabelas usadas: `socios`, `mecanicos`, `clientes`, `veiculos`, `os`, `catalogo_pecas`, `catalogo_servicos`, mais `credenciais` e `config_app` (essas duas sem acesso pela API). Orçamentos e ordens de serviço ficam juntos em `os`, separados pela coluna `status`.
+
+**Clientes e veículos** são cadastros de verdade, criados sozinhos quando uma OS é gravada com placa. A placa é a identidade do veículo: normalizada (só letras e números, maiúscula) por um trigger no banco e única, para o mesmo carro nunca virar dois cadastros. A OS guarda tanto o vínculo (`cliente_id`, `veiculo_id`), que cruza o histórico, quanto o texto do cliente e do veículo, que é o que foi impresso na época — se o carro for vendido, a OS antiga continua mostrando o dono de então.
 
 O schema está versionado em `supabase/migrations/`. Para recriar tudo do zero em outro projeto, basta aplicar os arquivos em ordem.
 

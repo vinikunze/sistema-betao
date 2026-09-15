@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-15.7-senhas-com-hash';
+const APP_VERSION = '2026-09-15.8-clientes-veiculos';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -44,7 +44,9 @@ const FORMAS_PAGAMENTO = [
     { id: 'carteira', nome: 'Na carteira (fiado)' },
 ];
 
-const nomeForma = (id) => (FORMAS_PAGAMENTO.find(f => f.id === id) || {}).nome || '';
+/* Sem forma escolhida devolve vazio, não o traço: o "—" existe só como rótulo
+   da opção em branco no select, e vazava para a etiqueta como "PAGO · —". */
+const nomeForma = (id) => (id ? (FORMAS_PAGAMENTO.find(f => f.id === id) || {}).nome || '' : '');
 const nomeSituacao = (id) => (SITUACOES_PAGAMENTO.find(x => x.id === id) || SITUACOES_PAGAMENTO[0]);
 
 /* O que falta receber de uma OS. Nunca negativo: se alguém digitar valor pago
@@ -53,7 +55,7 @@ const aReceberDaOS = (o) => Math.max(0, (Number(o.total) || 0) - (Number(o.valor
 
 /* Só conta na carteira o que já foi produzido e ainda não foi quitado. */
 const osNaCarteira = (o) => osConcluida(o) && o.pagamento !== 'pago' && aReceberDaOS(o) > 0;
-let db = { os: [], mecanicos: [], catalogo_pecas: [], catalogo_servicos: [] };
+let db = { os: [], mecanicos: [], clientes: [], veiculos: [], catalogo_pecas: [], catalogo_servicos: [] };
 let session = null; let loginMode = 'login';
 let stateOS = { editId: null, type: 'os', servicos: [], pecas: [], fotoBase64: null };
 
@@ -96,7 +98,7 @@ const animateValue = (elementId, start, end, duration) => {
 async function carregarDados() {
     if (!supabaseClient) return;
     // Carrega cada tabela isoladamente: um erro numa não derruba as outras.
-    const tabelas = ['mecanicos', 'os', 'catalogo_pecas', 'catalogo_servicos'];   // socios não é mais legível: o login é por função
+    const tabelas = ['mecanicos', 'os', 'clientes', 'veiculos', 'catalogo_pecas', 'catalogo_servicos'];   // socios não é mais legível: o login é por função
     for (const t of tabelas) {
         try {
             const { data, error } = await supabaseClient.from(t).select('*');
@@ -115,6 +117,7 @@ function renderizarTelas() {
         try { renderOrcamentos(); } catch (e) { console.error(e); }
         try { renderOSKanban(); } catch (e) { console.error(e); }
         try { renderCobrancas(); } catch (e) { console.error(e); }
+        try { renderVeiculos(); } catch (e) { console.error(e); }
         try { renderMecanicos(); } catch (e) { console.error(e); }
         try { renderRelatorios(); } catch (e) { console.error(e); }
         try { renderCatalogo(); } catch (e) { console.error(e); }
@@ -194,7 +197,7 @@ function initApp() {
                 <button class="btn btn-primary" onclick="openDocModal('orcamento')" style="background:var(--blue); width: 100%;">+ Novo Orçamento</button>
                 <button class="btn btn-primary" onclick="openDocModal('os')" style="width: 100%;">+ Nova OS</button>
             </div>
-            <button class="nav-item active" data-page="dashboard">Dashboard BI</button><button class="nav-item" data-page="orcamentos">Orçamentos</button><button class="nav-item" data-page="os">Gestão Ágil (OS)</button><button class="nav-item" data-page="cobrancas">Cobranças</button><button class="nav-item" data-page="mecanicos">Equipe</button><button class="nav-item" data-page="catalogo">Catálogo</button><button class="nav-item" data-page="relatorios">Relatórios</button>`;
+            <button class="nav-item active" data-page="dashboard">Dashboard BI</button><button class="nav-item" data-page="orcamentos">Orçamentos</button><button class="nav-item" data-page="os">Gestão Ágil (OS)</button><button class="nav-item" data-page="cobrancas">Cobranças</button><button class="nav-item" data-page="veiculos">Veículos</button><button class="nav-item" data-page="mecanicos">Equipe</button><button class="nav-item" data-page="catalogo">Catálogo</button><button class="nav-item" data-page="relatorios">Relatórios</button>`;
 
         document.getElementById('page-dashboard').classList.add('active'); document.getElementById('page-mec-dashboard').classList.remove('active');
         if (document.getElementById('desktop-actions-box')) document.getElementById('desktop-actions-box').style.display = 'flex';
@@ -222,27 +225,59 @@ function mostrarSugestoesPlaca(valor) {
     if (!suggestionsBox) return;
     if (input.length < 2) { suggestionsBox.classList.add('hidden'); return; }
 
-    // Na nova arquitetura, TUDO está na db.os
+    /* Sugere a partir do cadastro de veículos e, depois, do histórico de OS —
+       assim os carros atendidos antes de existir cadastro continuam aparecendo. */
     const veiculosMap = new Map();
-    db.os.sort((a, b) => Number(b.id) - Number(a.id)).forEach(doc => {
-        if (doc.placa && doc.placa.trim() !== '') {
-            const p = doc.placa.toUpperCase().trim();
-            if (!veiculosMap.has(p)) veiculosMap.set(p, doc.cliente || 'Desconhecido');
+    db.veiculos.forEach(v => {
+        const dono = clientePorId(v.cliente_id);
+        veiculosMap.set(v.placa, {
+            cliente: dono ? dono.nome : 'Sem dono cadastrado',
+            info: [v.marca, v.modelo].filter(Boolean).join(' '),
+        });
+    });
+    db.os.slice().sort((a, b) => Number(b.id) - Number(a.id)).forEach(doc => {
+        const p = normalizarPlaca(doc.placa);
+        if (p && !veiculosMap.has(p)) {
+            veiculosMap.set(p, { cliente: doc.cliente || 'Desconhecido', info: [doc.veiculo, doc.modelo].filter(Boolean).join(' ') });
         }
     });
 
-    const matches = []; veiculosMap.forEach((cliente, placa) => { if (placa.includes(input)) matches.push({ placa, cliente }); });
-    if (matches.length > 0) { suggestionsBox.innerHTML = matches.map(m => `<div class="autocomplete-item" onclick="selecionarPlaca('${m.placa}')"><strong>${m.placa}</strong><span class="autocomplete-client">${m.cliente}</span></div>`).join(''); suggestionsBox.classList.remove('hidden'); }
-    else { suggestionsBox.classList.add('hidden'); }
+    const alvo = normalizarPlaca(input);
+    const matches = [];
+    veiculosMap.forEach((dados, placa) => { if (placa.includes(alvo)) matches.push({ placa, ...dados }); });
+    matches.sort((a, b) => a.placa.localeCompare(b.placa));
+    if (matches.length > 0) {
+        suggestionsBox.innerHTML = matches.slice(0, 8).map(m => `<div class="autocomplete-item" onclick="selecionarPlaca('${m.placa}')"><strong>${m.placa}</strong><span class="autocomplete-client">${m.cliente}${m.info ? ' · ' + m.info : ''}</span></div>`).join('');
+        suggestionsBox.classList.remove('hidden');
+    } else { suggestionsBox.classList.add('hidden'); }
 }
 function selecionarPlaca(placa) { document.getElementById('d-placa').value = placa; document.getElementById('placa-suggestions').classList.add('hidden'); buscarPlaca(placa); }
 document.addEventListener('click', function (e) { const box = document.getElementById('placa-suggestions'); const inp = document.getElementById('d-placa'); if (box && !box.contains(e.target) && e.target !== inp) box.classList.add('hidden'); });
 
 function buscarPlaca(placaInput) {
-    if (!placaInput || placaInput.length < 7) return;
-    const placa = placaInput.toUpperCase().trim(); document.getElementById('d-placa').value = placa;
-    const match = db.os.sort((a, b) => Number(b.id) - Number(a.id)).find(doc => doc.placa && doc.placa.toUpperCase().trim() === placa);
-    if (match) { ['cliente', 'veiculo', 'modelo', 'motor', 'km'].forEach(f => { const el = document.getElementById('d-' + f); if (el) el.value = match[f] || ''; }); toast("🚗 Dados recuperados!"); }
+    const placa = normalizarPlaca(placaInput);
+    if (placa.length < 7) return;
+    const campo = document.getElementById('d-placa'); if (campo) campo.value = placa;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+
+    // Primeiro o cadastro do veículo, que é a fonte atual. Só depois o
+    // histórico de OS, para os carros que já rodavam antes deste cadastro.
+    const v = veiculoPorPlaca(placa);
+    if (v) {
+        set('d-veiculo', v.marca); set('d-modelo', v.modelo); set('d-motor', v.motor); set('d-km', v.km_atual);
+        const dono = clientePorId(v.cliente_id);
+        if (dono) set('d-cliente', dono.nome);
+        const qtd = osDoVeiculo(v.id, placa).length;
+        toast(qtd ? `🚗 ${v.marca} ${v.modelo} · ${qtd} ${qtd === 1 ? 'serviço' : 'serviços'} no histórico` : '🚗 Veículo encontrado!');
+        return;
+    }
+
+    const match = db.os.slice().sort((a, b) => Number(b.id) - Number(a.id))
+        .find(doc => normalizarPlaca(doc.placa) === placa);
+    if (match) {
+        ['cliente', 'veiculo', 'modelo', 'motor', 'km'].forEach(f => set('d-' + f, match[f]));
+        toast("🚗 Dados recuperados do histórico!");
+    }
 }
 
 /* =========================================
@@ -507,6 +542,81 @@ function termoBusca(tipo) {
 
 function filtrarChecklist(tipo) { if (tipo === 'pecas') renderChecklistPecas(); else renderChecklistServicos(); }
 
+/* =========================================
+   CLIENTES E VEÍCULOS
+   A placa é a identidade do carro. Normalizada aqui e no banco (trigger), para
+   "ABC-1D23", "abc1d23" e "ABC 1D23" serem sempre o mesmo veículo — senão o
+   histórico se parte em vários cadastros e não serve para nada.
+========================================= */
+const normalizarPlaca = (p) => String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const chaveNome = (n) => normalizarBusca(n);
+const novoId = () => Date.now().toString() + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+
+const clientePorId = (id) => db.clientes.find(c => c.id === id);
+const veiculoPorPlaca = (placa) => { const p = normalizarPlaca(placa); return p ? db.veiculos.find(v => v.placa === p) : null; };
+const osDoVeiculo = (veiculoId, placa) => {
+    const p = normalizarPlaca(placa);
+    return db.os.filter(o => (veiculoId && o.veiculo_id === veiculoId) || (p && normalizarPlaca(o.placa) === p))
+        .sort((a, b) => Number(b.id) - Number(a.id));
+};
+
+/* Acha o cliente pelo nome ou cria um novo. O casamento é pelo nome sem acento
+   e sem caixa: quem digita "Joao silva" hoje e "JOÃO SILVA" amanhã é a mesma
+   pessoa, e tratar como duas destruiria o histórico. */
+async function garantirCliente(nome) {
+    const limpo = String(nome || '').trim();
+    if (!limpo) return null;
+    const existente = db.clientes.find(c => chaveNome(c.nome) === chaveNome(limpo));
+    if (existente) return existente.id;
+
+    const id = novoId();
+    const { error } = await supabaseClient.from('clientes').insert([{ id, nome: limpo.toUpperCase() }]);
+    if (error) { console.error('Cliente:', error); return null; }
+    db.clientes.push({ id, nome: limpo.toUpperCase(), telefone: '', documento: '', observacoes: '' });
+    return id;
+}
+
+/* Cria ou atualiza o veículo. Insert em vez de upsert pelo mesmo motivo da OS:
+   se dois aparelhos cadastrarem a mesma placa ao mesmo tempo, o banco recusa o
+   segundo (placa é única) e nós relemos, em vez de sobrescrever. */
+async function garantirVeiculo(dados, clienteId) {
+    const placa = normalizarPlaca(dados.placa);
+    if (!placa) return null;
+
+    const campos = {
+        placa,
+        marca: (dados.marca || '').toUpperCase(),
+        modelo: (dados.modelo || '').toUpperCase(),
+        motor: (dados.motor || '').toUpperCase(),
+        km_atual: dados.km || '',
+    };
+    if (clienteId) campos.cliente_id = clienteId;
+
+    const existente = veiculoPorPlaca(placa);
+    if (existente) {
+        const { error } = await supabaseClient.from('veiculos').update(campos).eq('id', existente.id);
+        if (error) { console.error('Veículo:', error); return existente.id; }
+        Object.assign(existente, campos);
+        return existente.id;
+    }
+
+    const id = novoId();
+    const { error } = await supabaseClient.from('veiculos').insert([{ id, ...campos }]);
+    if (!error) { db.veiculos.push({ id, ...campos }); return id; }
+
+    if (error.code === '23505') {          // outro aparelho cadastrou a placa primeiro
+        const { data } = await supabaseClient.from('veiculos').select('*').eq('placa', placa).limit(1);
+        const achado = (data || [])[0];
+        if (achado) {
+            await supabaseClient.from('veiculos').update(campos).eq('id', achado.id);
+            db.veiculos.push(Object.assign(achado, campos));
+            return achado.id;
+        }
+    }
+    console.error('Veículo:', error);
+    return null;
+}
+
 /* MAIS USADOS
    Conta quantas vezes cada item do catálogo já foi lançado em OS e sobe os
    mais frequentes para o topo. Com quase 100 itens cadastrados, os poucos que
@@ -645,7 +755,15 @@ async function saveDoc() {
         if (situacao === 'nao_pago') pago = 0;
         pago = Math.min(Math.max(0, pago), tot);
 
-        const data = { id, cliente: clienteU, veiculo: veiculoU, modelo: modeloU, placa: placaU, km: document.getElementById('d-km').value, motor: motorU, status: statusDoc, servicos: stateOS.servicos, pecas: stateOS.pecas, maoObra: tMO, custoPecas: cP, receitaPecas: rP, total: tot, lucro: tot - tCom - cP, comissao: tCom, data: dataRegistro, dataISO: dataISORegistro, pagamento: situacao, forma_pagamento: formaPg, valor_pago: pago };
+        /* Cadastra (ou reconhece) o cliente e o veículo antes de gravar a OS.
+           A OS guarda os dois: o vínculo, que cruza o histórico, e o texto,
+           que é o que foi impresso e combinado na época. */
+        const clienteId = await garantirCliente(clienteU);
+        const veiculoId = await garantirVeiculo(
+            { placa: placaU, marca: veiculoU, modelo: modeloU, motor: motorU, km: document.getElementById('d-km').value },
+            clienteId);
+
+        const data = { id, cliente_id: clienteId, veiculo_id: veiculoId, cliente: clienteU, veiculo: veiculoU, modelo: modeloU, placa: placaU, km: document.getElementById('d-km').value, motor: motorU, status: statusDoc, servicos: stateOS.servicos, pecas: stateOS.pecas, maoObra: tMO, custoPecas: cP, receitaPecas: rP, total: tot, lucro: tot - tCom - cP, comissao: tCom, data: dataRegistro, dataISO: dataISORegistro, pagamento: situacao, forma_pagamento: formaPg, valor_pago: pago };
 
         // TUDO VAI PARA A TABELA OS AGORA
         const erroGravar = stateOS.editId
@@ -892,6 +1010,115 @@ function renderCobrancas() {
             </td>
         </tr>`;
     }).join('') || `<tr><td colspan="10" style="text-align:center; color:var(--text-dim);">Nenhuma ordem nesta situação.</td></tr>`;
+}
+
+/* =========================================
+   VEÍCULOS E FICHA DO CLIENTE
+   Responde as perguntas do balcão: "o que já fizemos nesse carro?",
+   "quando foi a última vez?", "esse aí me deve alguma coisa?".
+========================================= */
+let fichaVeiculoId = null;
+
+function resumoDoVeiculo(v) {
+    const lista = osDoVeiculo(v.id, v.placa);
+    const concluidas = lista.filter(osConcluida);
+    return {
+        lista,
+        qtd: concluidas.length,
+        total: concluidas.reduce((a, o) => a + (Number(o.total) || 0), 0),
+        aberto: lista.filter(osNaCarteira).reduce((a, o) => a + aReceberDaOS(o), 0),
+        ultima: lista.length ? lista[0].data : null,
+    };
+}
+
+function renderVeiculos() {
+    const el = document.getElementById('veic-tbody'); if (!el) return;
+    const termo = normalizarBusca((document.getElementById('veic-busca') || {}).value || '');
+
+    const linhas = db.veiculos.map(v => {
+        const dono = clientePorId(v.cliente_id);
+        return { v, dono, ...resumoDoVeiculo(v) };
+    }).filter(r => {
+        if (!termo) return true;
+        const alvo = [r.v.placa, r.v.marca, r.v.modelo, r.dono ? r.dono.nome : ''].join(' ');
+        return normalizarBusca(alvo).includes(termo);
+    }).sort((a, b) => Number(b.lista.length ? b.lista[0].id : 0) - Number(a.lista.length ? a.lista[0].id : 0));
+
+    el.innerHTML = linhas.map(r => `<tr>
+        <td><strong>${r.v.placa}</strong></td>
+        <td>${[r.v.marca, r.v.modelo].filter(Boolean).join(' ') || '--'}</td>
+        <td>${r.v.ano || '--'}</td>
+        <td>${r.dono ? r.dono.nome : '<span style="color:var(--text-dim);">Sem dono</span>'}</td>
+        <td>${r.dono && r.dono.telefone ? r.dono.telefone : '--'}</td>
+        <td>${r.qtd}</td>
+        <td>${r.ultima || '--'}</td>
+        <td>${fmt(r.total)}${r.aberto > 0 ? ` <span style="color:var(--danger); font-size:11px; font-weight:700;">(${fmt(r.aberto)} em aberto)</span>` : ''}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="abrirFicha('${r.v.id}')">📋 Ficha</button></td>
+    </tr>`).join('') || `<tr><td colspan="9" style="text-align:center; color:var(--text-dim);">${termo ? 'Nenhum veículo encontrado.' : 'Nenhum veículo ainda. Eles são cadastrados sozinhos quando você grava uma OS com placa.'}</td></tr>`;
+}
+
+function abrirFicha(veiculoId) {
+    const v = db.veiculos.find(x => x.id === veiculoId); if (!v) return;
+    fichaVeiculoId = veiculoId;
+    const dono = clientePorId(v.cliente_id);
+    const r = resumoDoVeiculo(v);
+
+    document.getElementById('ficha-placa').textContent = v.placa;
+    document.getElementById('ficha-veiculo').textContent =
+        [[v.marca, v.modelo].filter(Boolean).join(' '), v.ano, v.motor, v.km_atual ? v.km_atual + ' km' : ''].filter(Boolean).join(' · ') || 'Sem dados do veículo';
+
+    document.getElementById('ficha-cliente-nome').value = dono ? dono.nome : '';
+    document.getElementById('ficha-cliente-telefone').value = dono ? (dono.telefone || '') : '';
+    document.getElementById('ficha-cliente-obs').value = dono ? (dono.observacoes || '') : '';
+
+    document.getElementById('ficha-qtd').textContent = r.qtd;
+    document.getElementById('ficha-total').textContent = fmt(r.total);
+    document.getElementById('ficha-aberto').textContent = fmt(r.aberto);
+
+    document.getElementById('ficha-tbody').innerHTML = r.lista.map(o => `<tr>
+        <td>#${o.id}</td>
+        <td>${o.data || '--'}</td>
+        <td>${o.km || '--'}</td>
+        <td style="max-width:280px;">${(o.servicos || []).map(sv => sv.descricao).join(', ') || '--'}</td>
+        <td>${fmt(o.total)}</td>
+        <td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-ficha').style.display='none'; openDocModal('os','${o.id}')">✏️</button></td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center; color:var(--text-dim);">Nenhum serviço registrado neste veículo.</td></tr>';
+
+    document.getElementById('modal-ficha').style.display = 'flex';
+}
+
+/* O telefone e a observação do cliente só existem aqui: é onde você está
+   quando descobre que precisa deles (cobrando, ou atendendo o carro). */
+async function salvarFichaCliente() {
+    const v = db.veiculos.find(x => x.id === fichaVeiculoId); if (!v) return;
+    const nome = document.getElementById('ficha-cliente-nome').value.trim();
+    if (!nome) return toast('Informe o nome do cliente!', true);
+
+    const telefone = document.getElementById('ficha-cliente-telefone').value.trim();
+    const observacoes = document.getElementById('ficha-cliente-obs').value.trim();
+
+    let clienteId = v.cliente_id;
+    const atual = clientePorId(clienteId);
+    // Nome diferente do cadastrado: é outro dono (carro vendido), então o
+    // veículo passa a apontar para ele — sem mexer nas OS antigas, que guardam
+    // o nome de quem era o dono na época.
+    if (!atual || chaveNome(atual.nome) !== chaveNome(nome)) {
+        clienteId = await garantirCliente(nome);
+        if (clienteId && clienteId !== v.cliente_id) {
+            await supabaseClient.from('veiculos').update({ cliente_id: clienteId }).eq('id', v.id);
+            v.cliente_id = clienteId;
+        }
+    }
+    if (!clienteId) return toast('Não consegui salvar o cliente.', true);
+
+    const { error } = await supabaseClient.from('clientes')
+        .update({ nome: nome.toUpperCase(), telefone, observacoes }).eq('id', clienteId);
+    if (error) { console.error('Cliente:', error); return toast(mensagemErro(error), true); }
+
+    await carregarDados();
+    abrirFicha(fichaVeiculoId);
+    toast('Cliente salvo!');
 }
 
 function handlePhotoUpload(e) { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.readAsDataURL(f); r.onload = (ev) => { const img = new Image(); img.src = ev.target.result; img.onload = () => { const canvas = document.createElement('canvas'); const MAX = 600; const scale = MAX / img.width; canvas.width = MAX; canvas.height = img.height * scale; canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); const prev = document.getElementById('d-foto-preview'); if (prev) { prev.src = canvas.toDataURL('image/jpeg', 0.6); prev.style.display = 'block'; } } }; }

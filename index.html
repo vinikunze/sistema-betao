@@ -338,6 +338,37 @@
                     </div>
                 </div>
 
+                <div class="page" id="page-veiculos">
+                    <div class="filter-bar">
+                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">🚗 Veículos e Clientes</p>
+                        <div class="filter-controls" style="flex:1; max-width:520px;">
+                            <input type="text" id="veic-busca" class="quick-add-input" data-no-upper
+                                placeholder="Buscar por placa, cliente ou modelo..."
+                                oninput="renderVeiculos()">
+                        </div>
+                    </div>
+                    <div class="table-wrap">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Placa</th>
+                                        <th>Veículo</th>
+                                        <th>Ano</th>
+                                        <th>Cliente</th>
+                                        <th>Telefone</th>
+                                        <th>Serviços</th>
+                                        <th>Última visita</th>
+                                        <th>Total gasto</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="veic-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="page" id="page-mec-dashboard">
                     <div class="filter-bar">
                         <p style="color: var(--text-main); font-weight: bold; margin: 0;">📅 Filtro de Comissão</p>
@@ -563,6 +594,63 @@
                 <button class="btn btn-ghost"
                     onclick="document.getElementById('modal-doc').style.display='none'">Cancelar</button>
                 <button class="btn btn-primary" onclick="saveDoc()" id="btn-save-doc">💾 Gravar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="modal-ficha">
+        <div class="modal-box modal-lg">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.25rem;">
+                <div>
+                    <h2 id="ficha-placa" style="margin:0;">Placa</h2>
+                    <p id="ficha-veiculo" style="margin:4px 0 0; color:var(--text-dim);"></p>
+                </div>
+                <button class="btn btn-ghost"
+                    onclick="document.getElementById('modal-ficha').style.display='none'">✕</button>
+            </div>
+
+            <div class="ficha-dono">
+                <div class="form-group" style="margin:0;"><label>Cliente</label>
+                    <input type="text" id="ficha-cliente-nome"></div>
+                <div class="form-group" style="margin:0;"><label>Telefone</label>
+                    <input type="text" id="ficha-cliente-telefone" data-no-upper inputmode="tel"></div>
+                <div class="form-group" style="margin:0;"><label>Observações</label>
+                    <input type="text" id="ficha-cliente-obs" placeholder="Ex: paga sempre no dia 10"></div>
+                <button class="btn btn-primary" onclick="salvarFichaCliente()">Salvar cliente</button>
+            </div>
+
+            <div class="stats-grid" style="margin-top:1.25rem;">
+                <div class="stat-card">
+                    <div class="label">Serviços feitos</div>
+                    <div class="value" id="ficha-qtd">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total gasto</div>
+                    <div class="value" id="ficha-total" style="color:var(--brand);">R$ 0,00</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Em aberto</div>
+                    <div class="value" id="ficha-aberto" style="color:var(--danger);">R$ 0,00</div>
+                </div>
+            </div>
+
+            <h3 style="margin:1.5rem 0 .75rem; font-size:1rem; color:var(--brand); text-transform:uppercase;">
+                Histórico deste veículo</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>OS#</th>
+                            <th>Data</th>
+                            <th>KM</th>
+                            <th>Serviços</th>
+                            <th>Total</th>
+                            <th>Situação</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="ficha-tbody"></tbody>
+                </table>
             </div>
         </div>
     </div>

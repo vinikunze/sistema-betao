@@ -580,3 +580,23 @@ textarea:focus {
 .stat-card-link { cursor: pointer; transition: border-color .2s ease, transform .1s ease; }
 .stat-card-link:hover { border-color: var(--brand); }
 .stat-card-link:active { transform: scale(0.99); }
+
+/* Ficha do veículo: dados do dono em linha, com o botão junto */
+.ficha-dono {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1.6fr auto;
+    gap: 12px;
+    align-items: end;
+    padding: 14px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.ficha-dono input { min-height: 44px; font-size: 16px; }
+.ficha-dono .btn { min-height: 44px; }
+
+@media (max-width: 900px) {
+    .ficha-dono { grid-template-columns: 1fr 1fr; }
+    .ficha-dono .btn { grid-column: 1 / -1; }
+}
