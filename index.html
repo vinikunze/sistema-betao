@@ -139,6 +139,11 @@
                             <div class="value" id="d-ticket" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-ticket-trend">--</div>
                         </div>
+                        <div class="stat-card" style="border-top: 3px solid var(--danger);">
+                            <div class="label">A Receber (carteira)</div>
+                            <div class="value" id="d-receber" data-value="0">R$ 0,00</div>
+                            <div class="kpi-trend" id="d-receber-info">--</div>
+                        </div>
                     </div>
 
                     <div class="chart-wrapper revenue-hero">
@@ -271,6 +276,12 @@
                                     id="count-finalizada">0</span></div>
                             <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
                                 id="cards-finalizada"></div>
+                        </div>
+                        <div class="kanban-column" id="col-entregue" data-status="entregue">
+                            <div class="kanban-header badge-entregue">🔷 Entregues <span class="kanban-count"
+                                    id="count-entregue">0</span></div>
+                            <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
+                                id="cards-entregue"></div>
                         </div>
                     </div>
                 </div>
@@ -476,6 +487,16 @@
                         id="sub-mo">R$ 0,00</span></div>
                 <div class="resumo-item"><span class="resumo-label">Peças</span><span class="resumo-val"
                         id="sub-pecas">R$ 0,00</span></div>
+                <div class="pagamento-row">
+                    <div class="form-group" style="margin:0;"><label>Pagamento</label>
+                        <select id="d-pagamento" onchange="aoMudarSituacaoPagamento()"></select></div>
+                    <div class="form-group" style="margin:0;"><label>Forma</label>
+                        <select id="d-forma-pagamento"></select></div>
+                    <div class="form-group" style="margin:0;"><label>Valor pago</label>
+                        <input type="number" id="d-valor-pago" value="0" step="0.01"
+                            oninput="atualizarResumoPagamento()"></div>
+                    <div class="pagamento-falta" id="d-falta-receber">Falta receber R$ 0,00</div>
+                </div>
                 <div class="resumo-item resumo-total">
                     <div class="form-group" style="margin:0;"><label>Status</label><select id="d-status"></select></div>
                     <div style="text-align:right;">

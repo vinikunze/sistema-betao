@@ -684,7 +684,7 @@ tr:hover td {
     border: 1px solid var(--border);
     border-radius: 12px;
     flex: 1;
-    min-width: 320px;
+    min-width: 280px;   /* com a 4a coluna (Entregues), 320px apertava demais */
     display: flex;
     flex-direction: column;
 }
@@ -720,6 +720,12 @@ tr:hover td {
 .badge-finalizada {
     border-top: 4px solid var(--success);
     border-radius: 12px 12px 0 0;
+}
+
+.badge-entregue {
+    border-top: 4px solid var(--blue);
+    border-radius: 12px 12px 0 0;
+    filter: brightness(1.15);
 }
 
 .kanban-cards {
