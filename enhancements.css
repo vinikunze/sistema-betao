@@ -533,3 +533,45 @@ textarea:focus {
 .diag-ok    { border-color: var(--success); background: rgba(46, 204, 113, 0.10); }
 .diag-aviso { border-color: var(--brand);   background: rgba(232, 160, 32, 0.10); }
 .diag-erro  { border-color: var(--danger);  background: rgba(231, 76, 60, 0.10); }
+
+/* =====================================================
+   PAGAMENTO — situação, forma e quanto falta receber.
+   Fica logo acima do Status para deixar claro que são
+   dois eixos diferentes: o serviço e o dinheiro.
+   ===================================================== */
+.pagamento-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1.2fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+}
+
+.pagamento-row select,
+.pagamento-row input {
+    min-height: 44px;
+    font-size: 16px;   /* abaixo de 16px o Safari do iOS dá zoom ao focar */
+}
+
+.pagamento-falta {
+    padding-bottom: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+@media (max-width: 820px) {
+    .pagamento-row {
+        grid-template-columns: 1fr 1fr;
+    }
+    .pagamento-falta {
+        grid-column: 1 / -1;
+        padding-bottom: 0;
+    }
+}
+
+/* Etiqueta de pagamento dentro do card do kanban */
+.kc-pagamento {
+    margin: 8px 0 2px;
+}

@@ -12,9 +12,47 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-15.4-os-sem-colisao';
+const APP_VERSION = '2026-09-15.5-pagamento';
 
 const CONFIG = { CODIGO_SOCIOS: 'B17021103', SESSION_KEY: 'betao_sess' };
+
+/* DOIS EIXOS INDEPENDENTES
+   status    = onde o serviço está (orçamento → aberta → andamento → finalizada → entregue)
+   pagamento = se o dinheiro entrou (não pago / parcial / pago)
+   Uma OS pode estar ENTREGUE e NÃO PAGA: é a venda na carteira. Por isso são
+   campos separados — juntar os dois num só perderia justamente essa combinação.
+
+   Concluída é o que conta como produzido: finalizada OU entregue. Antes o
+   código olhava só 'finalizada', então marcar como entregue apagaria a OS do
+   faturamento e da comissão do mecânico. */
+const STATUS_CONCLUIDOS = ['finalizada', 'entregue'];
+const osConcluida = (o) => STATUS_CONCLUIDOS.indexOf(o && o.status) >= 0;
+
+const SITUACOES_PAGAMENTO = [
+    { id: 'nao_pago', nome: 'Não pago', bolinha: '🔴' },
+    { id: 'parcial', nome: 'Falta acertar', bolinha: '🟡' },
+    { id: 'pago', nome: 'Pago', bolinha: '🟢' },
+];
+
+const FORMAS_PAGAMENTO = [
+    { id: '', nome: '—' },
+    { id: 'pix', nome: 'Pix' },
+    { id: 'dinheiro', nome: 'Dinheiro' },
+    { id: 'debito', nome: 'Cartão de débito' },
+    { id: 'credito', nome: 'Cartão de crédito' },
+    { id: 'transferencia', nome: 'Transferência' },
+    { id: 'carteira', nome: 'Na carteira (fiado)' },
+];
+
+const nomeForma = (id) => (FORMAS_PAGAMENTO.find(f => f.id === id) || {}).nome || '';
+const nomeSituacao = (id) => (SITUACOES_PAGAMENTO.find(x => x.id === id) || SITUACOES_PAGAMENTO[0]);
+
+/* O que falta receber de uma OS. Nunca negativo: se alguém digitar valor pago
+   maior que o total, o certo é mostrar zero a receber, não crédito. */
+const aReceberDaOS = (o) => Math.max(0, (Number(o.total) || 0) - (Number(o.valor_pago) || 0));
+
+/* Só conta na carteira o que já foi produzido e ainda não foi quitado. */
+const osNaCarteira = (o) => osConcluida(o) && o.pagamento !== 'pago' && aReceberDaOS(o) > 0;
 let db = { socios: [], os: [], mecanicos: [], catalogo_pecas: [], catalogo_servicos: [] };
 let session = null; let loginMode = 'login';
 let stateOS = { editId: null, type: 'os', servicos: [], pecas: [], fotoBase64: null };
@@ -211,7 +249,7 @@ function renderDashboard() {
         if (!dIni && !dFim) { const now = new Date(); curIni = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]; curFim = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]; }
 
         // Apenas OS finalizadas entram no balanço
-        const currList = db.os.filter(o => { const iso = o.dataISO || parseBRDateToISO(o.data); return iso >= curIni && iso <= curFim && o.status === 'finalizada'; });
+        const currList = db.os.filter(o => { const iso = o.dataISO || parseBRDateToISO(o.data); return iso >= curIni && iso <= curFim && osConcluida(o); });
 
         const faturamentoTotal = currList.reduce((a, o) => a + (Number(o.total) || 0), 0);
         const lucroTotal = currList.reduce((a, o) => a + (Number(o.lucro) || 0), 0);
@@ -221,9 +259,20 @@ function renderDashboard() {
         const d1 = new Date(curIni); const d2 = new Date(curFim); const diffTime = Math.abs(d2 - d1); const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
         const prevFimDate = new Date(d1); prevFimDate.setDate(prevFimDate.getDate() - 1); const prevFim = prevFimDate.toISOString().split('T')[0];
         const prevIniDate = new Date(prevFimDate); prevIniDate.setDate(prevIniDate.getDate() - diffDays + 1); const prevIni = prevIniDate.toISOString().split('T')[0];
-        const prevList = db.os.filter(o => { const iso = o.dataISO || parseBRDateToISO(o.data); return iso >= prevIni && iso <= prevFim && o.status === 'finalizada'; });
+        const prevList = db.os.filter(o => { const iso = o.dataISO || parseBRDateToISO(o.data); return iso >= prevIni && iso <= prevFim && osConcluida(o); });
 
         const pFat = prevList.reduce((a, o) => a + (Number(o.total) || 0), 0); const pLucro = prevList.reduce((a, o) => a + (Number(o.lucro) || 0), 0); const pCom = prevList.reduce((a, o) => a + (Number(o.comissao) || 0), 0); const pTicket = prevList.length > 0 ? (pFat / prevList.length) : 0;
+
+        /* A receber é a carteira INTEIRA, não só a do período filtrado: dívida
+           antiga continua sendo dívida, e é isso que se quer saber ao olhar. */
+        const carteira = db.os.filter(osNaCarteira);
+        const totalAReceber = carteira.reduce((a, o) => a + aReceberDaOS(o), 0);
+        const elReceber = document.getElementById('d-receber');
+        if (elReceber) animateValue('d-receber', 0, totalAReceber, 1000);
+        const elReceberInfo = document.getElementById('d-receber-info');
+        if (elReceberInfo) elReceberInfo.textContent = carteira.length
+            ? carteira.length + (carteira.length === 1 ? ' OS em aberto' : ' OS em aberto')
+            : 'Nada na carteira';
 
         animateValue('d-fat', 0, faturamentoTotal, 1000); animateValue('d-lucro', 0, lucroTotal, 1000); animateValue('d-comissao', 0, comissaoTotal, 1000); animateValue('d-ticket', 0, ticketMedio, 1000);
 
@@ -233,7 +282,7 @@ function renderDashboard() {
         if (document.getElementById('d-ticket-trend')) document.getElementById('d-ticket-trend').innerHTML = getTrendHTML(ticketMedio, pTicket);
 
         if (document.getElementById('d-tbody')) {
-            document.getElementById('d-tbody').innerHTML = currList.sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 8).map(o => `<tr><td>#${o.id}</td><td>${o.veiculo}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;">Nenhuma OS finalizada no período.</td></tr>';
+            document.getElementById('d-tbody').innerHTML = currList.sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 8).map(o => `<tr><td>#${o.id}</td><td>${o.veiculo}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;">Nenhuma OS finalizada no período.</td></tr>';
         }
 
         try {
@@ -270,6 +319,7 @@ function renderTicketChart(labels, ticket) {
 function getStatusBadge(s) {
     if (!s) s = 'aberta';
     const upper = s.toUpperCase();
+    if (s === 'entregue') return `<span style="color:var(--blue); font-weight:bold; background:rgba(59,130,246,0.14); padding:4px 8px; border-radius:4px; font-size:11px;">🔷 ENTREGUE</span>`;
     if (s === 'finalizada') return `<span style="color:var(--success); font-weight:bold; background:rgba(34,197,94,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🟢 ${upper}</span>`;
     if (s === 'em_andamento') return `<span style="color:var(--gold); font-weight:bold; background:rgba(232,160,32,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🟡 ${upper}</span>`;
     if (s === 'orcamento') return `<span style="color:var(--gold); font-weight:bold; background:rgba(232,160,32,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🟡 ORÇAMENTO PENDENTE</span>`;
@@ -277,11 +327,24 @@ function getStatusBadge(s) {
     return `<span style="color:var(--blue); font-weight:bold; background:rgba(59,130,246,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🔵 ${upper}</span>`;
 }
 
+/* Etiqueta de pagamento, separada da etiqueta de status: as duas aparecem
+   lado a lado para não confundir "serviço pronto" com "dinheiro recebido". */
+function getPagamentoBadge(o) {
+    const sit = nomeSituacao(o.pagamento);
+    const forma = nomeForma(o.forma_pagamento);
+    const cor = o.pagamento === 'pago' ? 'var(--success)' : (o.pagamento === 'parcial' ? 'var(--brand)' : 'var(--danger)');
+    const fundo = o.pagamento === 'pago' ? 'rgba(34,197,94,0.1)' : (o.pagamento === 'parcial' ? 'rgba(232,160,32,0.1)' : 'rgba(239,68,68,0.1)');
+    let texto = sit.nome.toUpperCase();
+    if (o.pagamento === 'pago' && forma) texto += ' · ' + forma.toUpperCase();
+    else if (o.pagamento !== 'pago' && aReceberDaOS(o) > 0) texto += ' · FALTA ' + fmt(aReceberDaOS(o));
+    return `<span style="color:${cor}; font-weight:bold; background:${fundo}; padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap;">${sit.bolinha} ${texto}</span>`;
+}
+
 function renderOrcamentos() {
     const el = document.getElementById('orc-tbody'); if (!el) return;
     // O Orçamento agora mora dentro da tabela OS
     const orcs = db.os.filter(o => o.status === 'orcamento' || o.status === 'rejeitado');
-    el.innerHTML = orcs.sort((a, b) => Number(b.id) - Number(a.id)).map(o => `<tr><td>#${o.id}</td><td>${o.data}</td><td>${o.veiculo}</td><td>${o.cliente}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}</td><td><button class="btn btn-secondary btn-sm" onclick="openDocModal('orcamento','${o.id}')">✏️ Abrir</button></td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;">Nenhum Orçamento.</td></tr>';
+    el.innerHTML = orcs.sort((a, b) => Number(b.id) - Number(a.id)).map(o => `<tr><td>#${o.id}</td><td>${o.data}</td><td>${o.veiculo}</td><td>${o.cliente}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}</td><td><button class="btn btn-secondary btn-sm" onclick="openDocModal('orcamento','${o.id}')">✏️ Abrir</button></td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;">Nenhum Orçamento.</td></tr>';
 }
 
 function renderOSKanban() {
@@ -291,22 +354,26 @@ function renderOSKanban() {
     const abertas = db.os.filter(o => o.status === 'aberta').sort((a, b) => Number(b.id) - Number(a.id));
     const andamento = db.os.filter(o => o.status === 'em_andamento').sort((a, b) => Number(b.id) - Number(a.id));
     const finalizadas = db.os.filter(o => o.status === 'finalizada').sort((a, b) => Number(b.id) - Number(a.id));
+    const entregues = db.os.filter(o => o.status === 'entregue').sort((a, b) => Number(b.id) - Number(a.id));
 
     if (document.getElementById('count-aberta')) document.getElementById('count-aberta').textContent = abertas.length;
     if (document.getElementById('count-andamento')) document.getElementById('count-andamento').textContent = andamento.length;
     if (document.getElementById('count-finalizada')) document.getElementById('count-finalizada').textContent = finalizadas.length;
+    if (document.getElementById('count-entregue')) document.getElementById('count-entregue').textContent = entregues.length;
 
     const buildCard = (o) => `
         <div class="kanban-card" id="kcard-${o.id}" draggable="true" ondragstart="drag(event)">
             <div class="kc-header"><span class="kc-id">#${o.id}</span><span class="kc-val">${fmt(o.total)}</span></div>
             <div class="kc-veiculo">${o.veiculo}</div>
             <div class="kc-cliente">👤 ${o.cliente || 'Sem Nome'} | 🚗 ${o.placa || 'Sem Placa'}</div>
+            ${osConcluida(o) ? `<div class="kc-pagamento">${getPagamentoBadge(o)}</div>` : ''}
             <div class="kc-footer"><span class="kc-date">${o.data}</span><button class="btn btn-secondary btn-sm" onclick="openDocModal('os','${o.id}')">✏️ Abrir</button></div>
         </div>
     `;
     cardsAberta.innerHTML = abertas.map(buildCard).join('');
     if (document.getElementById('cards-andamento')) document.getElementById('cards-andamento').innerHTML = andamento.map(buildCard).join('');
     if (document.getElementById('cards-finalizada')) document.getElementById('cards-finalizada').innerHTML = finalizadas.map(buildCard).join('');
+    if (document.getElementById('cards-entregue')) document.getElementById('cards-entregue').innerHTML = entregues.map(buildCard).join('');
 }
 
 function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
@@ -333,6 +400,48 @@ async function drop(ev) {
 /* =========================================
    7. MODAIS E SALVAMENTO GERAL (BLINDADO)
 ========================================= */
+/* Monta os selects de pagamento a partir das listas, para não haver duas
+   fontes de verdade entre o HTML e o que é gravado no banco. */
+function montarSelectsPagamento() {
+    const sit = document.getElementById('d-pagamento');
+    if (sit && !sit.options.length) {
+        sit.innerHTML = SITUACOES_PAGAMENTO.map(x => `<option value="${x.id}">${x.bolinha} ${x.nome}</option>`).join('');
+    }
+    const forma = document.getElementById('d-forma-pagamento');
+    if (forma && !forma.options.length) {
+        forma.innerHTML = FORMAS_PAGAMENTO.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+    }
+}
+
+/* "Pago" preenche o valor pago com o total sozinho — ninguém quer digitar o
+   mesmo número duas vezes. "Não pago" zera. "Falta acertar" deixa a pessoa
+   digitar quanto entrou, que é justamente a informação que só ela sabe. */
+function aoMudarSituacaoPagamento() {
+    const sit = document.getElementById('d-pagamento');
+    const valor = document.getElementById('d-valor-pago');
+    if (!sit || !valor) return;
+    if (sit.value === 'pago') valor.value = totalAtualDoDoc();
+    else if (sit.value === 'nao_pago') valor.value = 0;
+    atualizarResumoPagamento();
+}
+
+function totalAtualDoDoc() {
+    const el = document.getElementById('res-total');
+    if (!el) return 0;
+    // res-total já está formatado em reais; o número puro vem do dataset.
+    return Number(el.dataset.valor || 0);
+}
+
+function atualizarResumoPagamento() {
+    const el = document.getElementById('d-falta-receber');
+    if (!el) return;
+    const total = totalAtualDoDoc();
+    const pago = Number((document.getElementById('d-valor-pago') || {}).value) || 0;
+    const falta = Math.max(0, total - pago);
+    el.textContent = falta > 0 ? 'Falta receber ' + fmt(falta) : 'Quitado';
+    el.style.color = falta > 0 ? 'var(--danger)' : 'var(--success)';
+}
+
 function openDocModal(type, editId = null) {
     stateOS.type = type; stateOS.editId = editId;
     if (document.getElementById('mdoc-title')) document.getElementById('mdoc-title').textContent = type === 'os' ? 'Ordem de Serviço' : 'Orçamento';
@@ -344,17 +453,25 @@ function openDocModal(type, editId = null) {
 
     const statusSelect = document.getElementById('d-status');
     if (statusSelect) {
-        if (type === 'os') statusSelect.innerHTML = `<option value="aberta">🔵 Aberta</option><option value="em_andamento">🟡 Andamento</option><option value="finalizada">🟢 Finalizada</option>`;
+        if (type === 'os') statusSelect.innerHTML = `<option value="aberta">🔵 Aberta</option><option value="em_andamento">🟡 Andamento</option><option value="finalizada">🟢 Finalizada</option><option value="entregue">🔷 Entregue</option>`;
         else statusSelect.innerHTML = `<option value="orcamento">🟡 Pendente (Orçamento)</option><option value="rejeitado">🔴 Rejeitado</option>`;
     }
+
+    montarSelectsPagamento();
 
     if (editId) {
         const doc = db.os.find(x => x.id == editId);
         ['cliente', 'veiculo', 'modelo', 'placa', 'km', 'motor', 'status'].forEach(f => { const el = document.getElementById('d-' + f); if (el) el.value = doc[f] || ''; });
+        if (document.getElementById('d-pagamento')) document.getElementById('d-pagamento').value = doc.pagamento || 'nao_pago';
+        if (document.getElementById('d-forma-pagamento')) document.getElementById('d-forma-pagamento').value = doc.forma_pagamento || '';
+        if (document.getElementById('d-valor-pago')) document.getElementById('d-valor-pago').value = Number(doc.valor_pago) || 0;
         stateOS.servicos = JSON.parse(JSON.stringify(doc.servicos || [])); stateOS.pecas = JSON.parse(JSON.stringify(doc.pecas || []));
     } else {
         ['cliente', 'veiculo', 'modelo', 'placa', 'km', 'motor'].forEach(f => { const el = document.getElementById('d-' + f); if (el) el.value = ''; });
         if (statusSelect) statusSelect.value = type === 'os' ? 'aberta' : 'orcamento';
+        if (document.getElementById('d-pagamento')) document.getElementById('d-pagamento').value = 'nao_pago';
+        if (document.getElementById('d-forma-pagamento')) document.getElementById('d-forma-pagamento').value = '';
+        if (document.getElementById('d-valor-pago')) document.getElementById('d-valor-pago').value = 0;
         stateOS.servicos = []; stateOS.pecas = []; stateOS.fotoBase64 = null;
         if (document.getElementById('d-foto-preview')) document.getElementById('d-foto-preview').style.display = 'none';
     }
@@ -457,7 +574,18 @@ function removePeca(id) { stateOS.pecas = stateOS.pecas.filter(p => p.id !== id)
 
 function updS(id, f, v) { const s = stateOS.servicos.find(x => x.id == id); if (s) s[f] = (f === 'valor' || f === 'qtd') ? Number(v) : v; updateTotals(); }
 function updP(id, f, v) { const p = stateOS.pecas.find(x => x.id == id); if (p) p[f] = (f === 'nome') ? v.toUpperCase() : Number(v); updateTotals(); }
-function updateTotals() { const mo = stateOS.servicos.reduce((a, s) => a + (Number(s.valor) * Number(s.qtd)), 0); const pe = stateOS.pecas.reduce((a, p) => a + (Number(p.venda) * Number(p.qtd)), 0); if (document.getElementById('res-total')) document.getElementById('res-total').textContent = fmt(mo + pe); if (document.getElementById('sub-mo')) document.getElementById('sub-mo').textContent = fmt(mo); if (document.getElementById('sub-pecas')) document.getElementById('sub-pecas').textContent = fmt(pe); }
+function updateTotals() {
+    const mo = stateOS.servicos.reduce((a, s) => a + (Number(s.valor) * Number(s.qtd)), 0);
+    const pe = stateOS.pecas.reduce((a, p) => a + (Number(p.venda) * Number(p.qtd)), 0);
+    const elTotal = document.getElementById('res-total');
+    if (elTotal) {
+        elTotal.textContent = fmt(mo + pe);
+        elTotal.dataset.valor = mo + pe;   // o número cru, para o cálculo do que falta receber
+    }
+    if (document.getElementById('sub-mo')) document.getElementById('sub-mo').textContent = fmt(mo);
+    if (document.getElementById('sub-pecas')) document.getElementById('sub-pecas').textContent = fmt(pe);
+    atualizarResumoPagamento();
+}
 
 async function saveDoc() {
     try {
@@ -492,7 +620,16 @@ async function saveDoc() {
         stateOS.servicos.forEach(s => s.descricao = s.descricao.toUpperCase());
         stateOS.pecas.forEach(p => p.nome = p.nome.toUpperCase());
 
-        const data = { id, cliente: clienteU, veiculo: veiculoU, modelo: modeloU, placa: placaU, km: document.getElementById('d-km').value, motor: motorU, status: statusDoc, servicos: stateOS.servicos, pecas: stateOS.pecas, maoObra: tMO, custoPecas: cP, receitaPecas: rP, total: tot, lucro: tot - tCom - cP, comissao: tCom, data: dataRegistro, dataISO: dataISORegistro };
+        // Pagamento: o valor pago nunca passa do total nem fica negativo, e
+        // "pago" sempre quita — assim o que falta receber não mente.
+        const situacao = document.getElementById('d-pagamento') ? document.getElementById('d-pagamento').value : 'nao_pago';
+        const formaPg = document.getElementById('d-forma-pagamento') ? document.getElementById('d-forma-pagamento').value : '';
+        let pago = Number((document.getElementById('d-valor-pago') || {}).value) || 0;
+        if (situacao === 'pago') pago = tot;
+        if (situacao === 'nao_pago') pago = 0;
+        pago = Math.min(Math.max(0, pago), tot);
+
+        const data = { id, cliente: clienteU, veiculo: veiculoU, modelo: modeloU, placa: placaU, km: document.getElementById('d-km').value, motor: motorU, status: statusDoc, servicos: stateOS.servicos, pecas: stateOS.pecas, maoObra: tMO, custoPecas: cP, receitaPecas: rP, total: tot, lucro: tot - tCom - cP, comissao: tCom, data: dataRegistro, dataISO: dataISORegistro, pagamento: situacao, forma_pagamento: formaPg, valor_pago: pago };
 
         // TUDO VAI PARA A TABELA OS AGORA
         const erroGravar = stateOS.editId
@@ -561,7 +698,7 @@ function generatePDF() {
    8. OUTRAS PÁGINAS E EXTRAS
 ========================================= */
 function renderPainelMecanico() {
-    const dIni = document.getElementById('m-data-inicio') ? document.getElementById('m-data-inicio').value : ''; const dFim = document.getElementById('m-data-fim') ? document.getElementById('m-data-fim').value : ''; let totalMO = 0, totalComissao = 0, qtd = 0; const html = []; db.os.filter(o => o.status === 'finalizada').forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { o.servicos.forEach(s => { if (s.mecanicoId == session.id) { totalMO += (Number(s.valor) * Number(s.qtd)); totalComissao += (Number(s.comissaoVal) || 0); qtd++; html.push(`<tr><td>${o.data}</td><td>${o.veiculo}</td><td>${s.descricao}</td><td style="color:var(--success); font-weight:bold;">${fmt(s.comissaoVal)}</td></tr>`); } }); } }); const elCom = document.getElementById('mec-total-comissao'); if (elCom) elCom.textContent = fmt(totalComissao); const elMo = document.getElementById('mec-total-mo'); if (elMo) elMo.textContent = fmt(totalMO); const elQtd = document.getElementById('mec-qtd-trabalhos'); if (elQtd) elQtd.textContent = qtd; const elBody = document.getElementById('mec-tbody'); if (elBody) elBody.innerHTML = html.join('') || '<tr><td colspan="4" style="text-align:center;">Nenhum serviço.</td></tr>';
+    const dIni = document.getElementById('m-data-inicio') ? document.getElementById('m-data-inicio').value : ''; const dFim = document.getElementById('m-data-fim') ? document.getElementById('m-data-fim').value : ''; let totalMO = 0, totalComissao = 0, qtd = 0; const html = []; db.os.filter(o => osConcluida(o)).forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { o.servicos.forEach(s => { if (s.mecanicoId == session.id) { totalMO += (Number(s.valor) * Number(s.qtd)); totalComissao += (Number(s.comissaoVal) || 0); qtd++; html.push(`<tr><td>${o.data}</td><td>${o.veiculo}</td><td>${s.descricao}</td><td style="color:var(--success); font-weight:bold;">${fmt(s.comissaoVal)}</td></tr>`); } }); } }); const elCom = document.getElementById('mec-total-comissao'); if (elCom) elCom.textContent = fmt(totalComissao); const elMo = document.getElementById('mec-total-mo'); if (elMo) elMo.textContent = fmt(totalMO); const elQtd = document.getElementById('mec-qtd-trabalhos'); if (elQtd) elQtd.textContent = qtd; const elBody = document.getElementById('mec-tbody'); if (elBody) elBody.innerHTML = html.join('') || '<tr><td colspan="4" style="text-align:center;">Nenhum serviço.</td></tr>';
 
     // Lista os orçamentos que este mecânico solicitou
     const orcHtml = [];
@@ -575,7 +712,7 @@ function renderPainelMecanico() {
 
 let mecEditId = null; function openMecModal(editId = null) { mecEditId = editId; if (editId) { const m = db.mecanicos.find(x => x.id === editId); document.getElementById('m-nome').value = m.nome; document.getElementById('m-com').value = m.comissao; document.getElementById('m-senha').value = m.senha; document.getElementById('modal-mec-title').textContent = 'Editar Mecânico'; } else { document.getElementById('m-nome').value = ''; document.getElementById('m-com').value = ''; document.getElementById('m-senha').value = ''; document.getElementById('modal-mec-title').textContent = 'Cadastrar Mecânico'; } document.getElementById('mec-senha-visible').style.display = 'none'; document.getElementById('m-senha').type = 'password'; document.getElementById('modal-mec').style.display = 'flex'; } async function saveMec() { const nome = document.getElementById('m-nome').value.trim(); const senha = document.getElementById('m-senha').value.trim(); if (!nome || !senha) return toast("Obrigatório!", true); await supabaseClient.from('mecanicos').upsert([{ id: mecEditId || Date.now().toString(), nome, comissao: Number(document.getElementById('m-com').value), senha }]); document.getElementById('modal-mec').style.display = 'none'; mecEditId = null; await carregarDados(); toast("Salvo!"); } async function deleteMec(id) { if (confirm("Remover?")) { await supabaseClient.from('mecanicos').delete().eq('id', id); await carregarDados(); toast("Removido!"); } } function toggleSenhaMec(id) { const m = db.mecanicos.find(x => x.id === id); const el = document.getElementById(`senha-${id}`); if (el.textContent === '••••••••') { el.textContent = m.senha; el.style.color = 'var(--brand)'; } else { el.textContent = '••••••••'; el.style.color = 'var(--text-dim)'; } } function renderMecanicos() { const el = document.getElementById('mec-grid'); if (!el) return; el.innerHTML = db.mecanicos.map(m => `<div class="stat-card"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><h3 style="font-size:1rem;">${m.nome}</h3><button class="btn btn-secondary btn-sm" onclick="openMecModal('${m.id}')">✏️</button></div><div class="label" style="margin-top:12px;">Comissão Ativa</div><div class="value" style="color:var(--brand); font-size:1.4rem;">${m.comissao}%</div><div class="label" style="margin-top:12px;">Senha</div><div style="display:flex; align-items:center; gap:8px; margin-top:6px;"><span id="senha-${m.id}" style="font-size:14px; font-weight:700; color:var(--text-dim); letter-spacing:2px;">••••••••</span><button class="btn btn-ghost btn-sm" onclick="toggleSenhaMec('${m.id}')">👁</button></div><button class="btn btn-danger btn-sm" style="width:100%; margin-top:15px;" onclick="deleteMec('${m.id}')">✕ Remover</button></div>`).join('') || '<p style="text-align:center; color:var(--text-dim); width:100%;">Vazio</p>'; }
 function renderCatalogo() { const elP = document.getElementById('catalog-pecas-list'); if (elP) elP.innerHTML = db.catalogo_pecas.map(p => `<div class="catalog-item"><div class="catalog-item-info"><strong>${p.nome}</strong><span class="catalog-badge badge-peca">Peça</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('pecas', '${p.id}')">✕</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; const elS = document.getElementById('catalog-servicos-list'); if (elS) elS.innerHTML = db.catalogo_servicos.map(s => `<div class="catalog-item"><div class="catalog-item-info"><strong>${s.nome}</strong><span class="catalog-badge badge-servico">Serviço</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('servicos', '${s.id}')">✕</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; } async function addCatalogItem(type) { const inp = document.getElementById(type === 'pecas' ? 'cat-peca-nome' : 'cat-servico-nome'); const nome = inp.value.trim().toUpperCase(); if (!nome) return; await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').insert([{ id: Date.now().toString(), nome }]); inp.value = ''; await carregarDados(); toast("Adicionado!"); } async function deleteCatalogItem(type, id) { await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').delete().eq('id', id); await carregarDados(); toast("Removido!"); }
-function filterRelatorios() { renderRelatorios(); } function filterRelatoriosToday() { const t = getTodayString(); document.getElementById('r-data-inicio').value = t; document.getElementById('r-data-fim').value = t; renderRelatorios(); } function clearRelatoriosFilter() { document.getElementById('r-data-inicio').value = ''; document.getElementById('r-data-fim').value = ''; renderRelatorios(); } function renderRelatorios() { const el = document.getElementById('r-mec-body'); if (!el) return; const dIni = document.getElementById('r-data-inicio').value; const dFim = document.getElementById('r-data-fim').value; const rank = db.mecanicos.map(m => { let mo = 0, com = 0; db.os.filter(o => o.status === 'finalizada').forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { o.servicos.forEach(s => { if (s.mecanicoId == m.id) { mo += (Number(s.valor) * Number(s.qtd)); com += (Number(s.comissaoVal) || 0); } }); } }); return { nome: m.nome, mo, com }; }).sort((a, b) => b.mo - a.mo); el.innerHTML = rank.map(m => `<tr><td>${m.nome}</td><td>${fmt(m.mo)}</td><td style="color:var(--brand)">${fmt(m.com)}</td></tr>`).join(''); }
+function filterRelatorios() { renderRelatorios(); } function filterRelatoriosToday() { const t = getTodayString(); document.getElementById('r-data-inicio').value = t; document.getElementById('r-data-fim').value = t; renderRelatorios(); } function clearRelatoriosFilter() { document.getElementById('r-data-inicio').value = ''; document.getElementById('r-data-fim').value = ''; renderRelatorios(); } function renderRelatorios() { const el = document.getElementById('r-mec-body'); if (!el) return; const dIni = document.getElementById('r-data-inicio').value; const dFim = document.getElementById('r-data-fim').value; const rank = db.mecanicos.map(m => { let mo = 0, com = 0; db.os.filter(o => osConcluida(o)).forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { o.servicos.forEach(s => { if (s.mecanicoId == m.id) { mo += (Number(s.valor) * Number(s.qtd)); com += (Number(s.comissaoVal) || 0); } }); } }); return { nome: m.nome, mo, com }; }).sort((a, b) => b.mo - a.mo); el.innerHTML = rank.map(m => `<tr><td>${m.nome}</td><td>${fmt(m.mo)}</td><td style="color:var(--brand)">${fmt(m.com)}</td></tr>`).join(''); }
 function handlePhotoUpload(e) { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.readAsDataURL(f); r.onload = (ev) => { const img = new Image(); img.src = ev.target.result; img.onload = () => { const canvas = document.createElement('canvas'); const MAX = 600; const scale = MAX / img.width; canvas.width = MAX; canvas.height = img.height * scale; canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); const prev = document.getElementById('d-foto-preview'); if (prev) { prev.src = canvas.toDataURL('image/jpeg', 0.6); prev.style.display = 'block'; } } }; }
 
 function configurarCliquesNav() {
