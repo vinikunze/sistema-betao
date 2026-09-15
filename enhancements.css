@@ -575,3 +575,8 @@ textarea:focus {
 .kc-pagamento {
     margin: 8px 0 2px;
 }
+
+/* Card do painel que leva para outra tela */
+.stat-card-link { cursor: pointer; transition: border-color .2s ease, transform .1s ease; }
+.stat-card-link:hover { border-color: var(--brand); }
+.stat-card-link:active { transform: scale(0.99); }

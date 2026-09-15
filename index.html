@@ -139,8 +139,9 @@
                             <div class="value" id="d-ticket" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-ticket-trend">--</div>
                         </div>
-                        <div class="stat-card" style="border-top: 3px solid var(--danger);">
-                            <div class="label">A Receber (carteira)</div>
+                        <div class="stat-card stat-card-link" style="border-top: 3px solid var(--danger);"
+                            onclick="irParaCobrancas()" title="Ver quem está devendo">
+                            <div class="label">A Receber (carteira) ›</div>
                             <div class="value" id="d-receber" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-receber-info">--</div>
                         </div>
@@ -282,6 +283,57 @@
                                     id="count-entregue">0</span></div>
                             <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
                                 id="cards-entregue"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page" id="page-cobrancas">
+                    <div class="filter-bar">
+                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">💰 Cobranças</p>
+                        <div class="filter-controls" id="cobranca-filtros">
+                            <button class="btn btn-sm btn-primary" data-cob="receber"
+                                onclick="setFiltroCobranca('receber')">A receber</button>
+                            <button class="btn btn-sm btn-secondary" data-cob="parcial"
+                                onclick="setFiltroCobranca('parcial')">Falta acertar</button>
+                            <button class="btn btn-sm btn-secondary" data-cob="pago"
+                                onclick="setFiltroCobranca('pago')">Pagos</button>
+                            <button class="btn btn-sm btn-secondary" data-cob="todos"
+                                onclick="setFiltroCobranca('todos')">Todos</button>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card" style="border-top: 3px solid var(--danger);">
+                            <div class="label" id="cob-label-total">Total a receber</div>
+                            <div class="value" id="cob-total">R$ 0,00</div>
+                            <div class="kpi-trend" id="cob-qtd">--</div>
+                        </div>
+                        <div class="stat-card" style="border-top: 3px solid var(--brand);">
+                            <div class="label">Mais antiga em aberto</div>
+                            <div class="value" id="cob-antiga" style="font-size:1.4rem;">--</div>
+                            <div class="kpi-trend" id="cob-antiga-info">--</div>
+                        </div>
+                    </div>
+
+                    <div class="table-wrap">
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>OS#</th>
+                                        <th>Data</th>
+                                        <th>Dias</th>
+                                        <th>Cliente</th>
+                                        <th>Veículo</th>
+                                        <th>Total</th>
+                                        <th>Pago</th>
+                                        <th>Falta</th>
+                                        <th>Forma</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cob-tbody"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
