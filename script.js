@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.4-simulacao-do-dia';
+const APP_VERSION = '2026-09-16.7-limpeza-e-navegacao';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -29,9 +29,9 @@ const STATUS_CONCLUIDOS = ['finalizada', 'entregue'];
 const osConcluida = (o) => STATUS_CONCLUIDOS.indexOf(o && o.status) >= 0;
 
 const SITUACOES_PAGAMENTO = [
-    { id: 'nao_pago', nome: 'Não pago', bolinha: '🔴' },
-    { id: 'parcial', nome: 'Falta acertar', bolinha: '🟡' },
-    { id: 'pago', nome: 'Pago', bolinha: '🟢' },
+    { id: 'nao_pago', nome: 'Não pago', tom: 'danger' },
+    { id: 'parcial', nome: 'Falta acertar', tom: 'brand' },
+    { id: 'pago', nome: 'Pago', tom: 'success' },
 ];
 
 const FORMAS_PAGAMENTO = [
@@ -221,7 +221,7 @@ function initApp() {
                 <button class="btn btn-primary" onclick="openDocModal('orcamento')" style="background:var(--blue); width: 100%;">+ Novo Orçamento</button>
                 <button class="btn btn-primary" onclick="openDocModal('os')" style="width: 100%;">+ Nova OS</button>
             </div>
-            <button class="nav-item active" data-page="dashboard">Dashboard BI</button><button class="nav-item" data-page="orcamentos">Orçamentos</button><button class="nav-item" data-page="os">Gestão Ágil (OS)</button><button class="nav-item" data-page="cobrancas">Cobranças</button><button class="nav-item" data-page="veiculos">Veículos</button><button class="nav-item" data-page="mecanicos">Equipe</button><button class="nav-item" data-page="catalogo">Catálogo</button><button class="nav-item" data-page="relatorios">Relatórios</button>`;
+            <button class="nav-item active" data-page="dashboard">${ico('painel', 15)}Painel</button><button class="nav-item" data-page="orcamentos">${ico('orcamento', 15)}Orçamentos</button><button class="nav-item" data-page="os">${ico('ordem', 15)}Ordens</button><button class="nav-item" data-page="cobrancas">${ico('cobranca', 15)}Cobranças</button><button class="nav-item" data-page="veiculos">${ico('veiculo', 15)}Veículos</button><button class="nav-item" data-page="mecanicos">${ico('equipe', 15)}Equipe</button><button class="nav-item" data-page="catalogo">${ico('catalogo', 15)}Catálogo</button><button class="nav-item" data-page="relatorios">${ico('relatorio', 15)}Relatórios</button>`;
 
         document.getElementById('page-dashboard').classList.add('active'); document.getElementById('page-mec-dashboard').classList.remove('active');
         if (document.getElementById('desktop-actions-box')) document.getElementById('desktop-actions-box').style.display = 'flex';
@@ -233,7 +233,7 @@ function initApp() {
             <div style="padding: 0 1rem 1rem 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem;">
                 <button class="btn btn-primary" onclick="openDocModal('orcamento')" style="background:var(--blue); width: 100%;">+ Solicitar Peças / Orçamento</button>
             </div>
-            <button class="nav-item active" data-page="mec-dashboard">Meu Painel</button>`;
+            <button class="nav-item active" data-page="mec-dashboard">${ico('painel', 15)}Meu painel</button>`;
 
         document.getElementById('page-dashboard').classList.remove('active'); document.getElementById('page-mec-dashboard').classList.add('active');
         if (document.getElementById('desktop-actions-box')) document.getElementById('desktop-actions-box').style.display = 'none';
@@ -292,7 +292,7 @@ function buscarPlaca(placaInput) {
         const dono = clientePorId(v.cliente_id);
         if (dono) set('d-cliente', dono.nome);
         const qtd = osDoVeiculo(v.id, placa).length;
-        toast(qtd ? `🚗 ${v.marca} ${v.modelo} · ${qtd} ${qtd === 1 ? 'serviço' : 'serviços'} no histórico` : '🚗 Veículo encontrado!');
+        toast(qtd ? `${v.marca} ${v.modelo} · ${qtd} ${qtd === 1 ? 'serviço' : 'serviços'} no histórico` : 'Veículo encontrado');
         mostrarAlertaGarantia(v.id, placa);
         return;
     }
@@ -301,7 +301,7 @@ function buscarPlaca(placaInput) {
         .find(doc => normalizarPlaca(doc.placa) === placa);
     if (match) {
         ['cliente', 'veiculo', 'modelo', 'motor', 'km'].forEach(f => set('d-' + f, match[f]));
-        toast("🚗 Dados recuperados do histórico!");
+        toast("Dados recuperados do histórico");
     }
 }
 
@@ -309,12 +309,18 @@ function buscarPlaca(placaInput) {
    5. DASHBOARD BI E GRÁFICOS (BLINDADOS)
 ========================================= */
 function filterDashboard() { renderDashboard(); } function filterToday() { const t = getTodayString(); document.getElementById('d-data-inicio').value = t; document.getElementById('d-data-fim').value = t; renderDashboard(); } function clearDashboardFilter() { document.getElementById('d-data-inicio').value = ''; document.getElementById('d-data-fim').value = ''; renderDashboard(); }
+/* Comparação com o período anterior, e só quando existe período anterior.
+   Antes, com o mês passado zerado, todo cartão mostrava "↑ +100%" em verde —
+   a primeira OS da vida da oficina virava um crescimento de cem por cento em
+   faturamento, lucro, comissão e ticket ao mesmo tempo. Isso não é um número,
+   é enfeite, e enfeite num painel de dinheiro ensina a não confiar nele. */
 function getTrendHTML(currVal, prevVal) {
-    if (prevVal === 0) return currVal > 0 ? `<span class="trend-up">↑ +100%</span>` : `<span class="trend-neutral">- 0%</span>`;
+    if (!prevVal) return `<span class="trend-neutral">sem período anterior</span>`;
     const diff = ((currVal - prevVal) / prevVal) * 100;
-    if (diff > 0) return `<span class="trend-up">↑ +${diff.toFixed(1)}%</span>`;
-    if (diff < 0) return `<span class="trend-down">↓ ${Math.abs(diff).toFixed(1)}%</span>`;
-    return `<span class="trend-neutral">- 0%</span>`;
+    if (Math.abs(diff) < 0.05) return `<span class="trend-neutral">igual ao período anterior</span>`;
+    const classe = diff > 0 ? 'trend-up' : 'trend-down';
+    const sinal = diff > 0 ? '+' : '−';
+    return `<span class="${classe}">${sinal}${Math.abs(diff).toFixed(1)}% sobre ${fmt(prevVal)}</span>`;
 }
 
 function renderDashboard() {
@@ -409,18 +415,24 @@ function renderTicketChart(labels, ticket) {
 function getRetornoBadge(o) {
     if (!o || !o.retorno_de_os) return '';
     const titulo = o.retorno_motivo ? ` title="${String(o.retorno_motivo).replace(/"/g, '&quot;')}"` : '';
-    return `<span${titulo} style="color:var(--gold); font-weight:bold; background:rgba(232,160,32,0.12); padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap;">↩️ RETORNO OS #${o.retorno_de_os}</span>`;
+    return `<span class="tag tag-brand"${titulo}>${ico('retorno', 12)}Retorno da OS #${o.retorno_de_os}</span>`;
 }
 
+/* O mesmo style= inline estava copiado seis vezes aqui embaixo, cada um com um
+   rgba() escrito à mão. Agora é uma tabela e uma classe: mexer na aparência da
+   etiqueta é mexer num lugar só. */
+const ESTADOS_OS = {
+    aberta: { nome: 'Aberta', tom: 'blue' },
+    em_andamento: { nome: 'Em andamento', tom: 'brand' },
+    finalizada: { nome: 'Finalizada', tom: 'success' },
+    entregue: { nome: 'Entregue', tom: 'blue' },
+    orcamento: { nome: 'Orçamento pendente', tom: 'brand' },
+    rejeitado: { nome: 'Rejeitado', tom: 'danger' },
+};
+
 function getStatusBadge(s) {
-    if (!s) s = 'aberta';
-    const upper = s.toUpperCase();
-    if (s === 'entregue') return `<span style="color:var(--blue); font-weight:bold; background:rgba(59,130,246,0.14); padding:4px 8px; border-radius:4px; font-size:11px;">🔷 ENTREGUE</span>`;
-    if (s === 'finalizada') return `<span style="color:var(--success); font-weight:bold; background:rgba(34,197,94,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🟢 ${upper}</span>`;
-    if (s === 'em_andamento') return `<span style="color:var(--gold); font-weight:bold; background:rgba(232,160,32,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🟡 ${upper}</span>`;
-    if (s === 'orcamento') return `<span style="color:var(--gold); font-weight:bold; background:rgba(232,160,32,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🟡 ORÇAMENTO PENDENTE</span>`;
-    if (s === 'rejeitado') return `<span style="color:var(--danger); font-weight:bold; background:rgba(239,68,68,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🔴 ${upper}</span>`;
-    return `<span style="color:var(--blue); font-weight:bold; background:rgba(59,130,246,0.1); padding:4px 8px; border-radius:4px; font-size:11px;">🔵 ${upper}</span>`;
+    const e = ESTADOS_OS[s || 'aberta'] || ESTADOS_OS.aberta;
+    return `<span class="tag tag-${e.tom}"><i class="tag-ponto"></i>${e.nome}</span>`;
 }
 
 /* Etiqueta de pagamento, separada da etiqueta de status: as duas aparecem
@@ -428,19 +440,18 @@ function getStatusBadge(s) {
 function getPagamentoBadge(o) {
     const sit = nomeSituacao(o.pagamento);
     const forma = nomeForma(o.forma_pagamento);
-    const cor = o.pagamento === 'pago' ? 'var(--success)' : (o.pagamento === 'parcial' ? 'var(--brand)' : 'var(--danger)');
-    const fundo = o.pagamento === 'pago' ? 'rgba(34,197,94,0.1)' : (o.pagamento === 'parcial' ? 'rgba(232,160,32,0.1)' : 'rgba(239,68,68,0.1)');
-    let texto = sit.nome.toUpperCase();
-    if (o.pagamento === 'pago' && forma) texto += ' · ' + forma.toUpperCase();
-    else if (o.pagamento !== 'pago' && aReceberDaOS(o) > 0) texto += ' · FALTA ' + fmt(aReceberDaOS(o));
-    return `<span style="color:${cor}; font-weight:bold; background:${fundo}; padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap;">${sit.bolinha} ${texto}</span>`;
+    const tom = o.pagamento === 'pago' ? 'success' : (o.pagamento === 'parcial' ? 'brand' : 'danger');
+    let texto = sit.nome;
+    if (o.pagamento === 'pago' && forma) texto += ' · ' + forma;
+    else if (o.pagamento !== 'pago' && aReceberDaOS(o) > 0) texto += ' · falta ' + fmt(aReceberDaOS(o));
+    return `<span class="tag tag-${tom}"><i class="tag-ponto"></i>${texto}</span>`;
 }
 
 function renderOrcamentos() {
     const el = document.getElementById('orc-tbody'); if (!el) return;
     // O Orçamento agora mora dentro da tabela OS
     const orcs = db.os.filter(o => o.status === 'orcamento' || o.status === 'rejeitado');
-    el.innerHTML = orcs.sort((a, b) => Number(b.id) - Number(a.id)).map(o => `<tr><td>#${o.id}</td><td>${o.data}</td><td>${o.veiculo}</td><td>${o.cliente}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}${getRetornoBadge(o)}</td><td><button class="btn btn-secondary btn-sm" onclick="openDocModal('orcamento','${o.id}')">✏️ Abrir</button></td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;">Nenhum Orçamento.</td></tr>';
+    el.innerHTML = orcs.sort((a, b) => Number(b.id) - Number(a.id)).map(o => `<tr><td>#${o.id}</td><td>${o.data}</td><td>${o.veiculo}</td><td>${o.cliente}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}${getRetornoBadge(o)}</td><td><button class="btn btn-secondary btn-sm" onclick="openDocModal('orcamento','${o.id}')">${ico('editar')}Abrir</button></td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;">Nenhum Orçamento.</td></tr>';
 }
 
 function renderOSKanban() {
@@ -461,9 +472,13 @@ function renderOSKanban() {
         <div class="kanban-card" id="kcard-${o.id}" draggable="true" ondragstart="drag(event)">
             <div class="kc-header"><span class="kc-id">#${o.id}</span><span class="kc-val">${fmt(o.total)}</span></div>
             <div class="kc-veiculo">${o.veiculo}</div>
-            <div class="kc-cliente">👤 ${o.cliente || 'Sem Nome'} | 🚗 ${o.placa || 'Sem Placa'}</div>
+            <div class="kc-cliente">${ico('cliente', 13)}${o.cliente || 'Sem nome'}<span class="kc-sep"></span>${ico('veiculo', 13)}${o.placa || 'Sem placa'}</div>
             ${osConcluida(o) ? `<div class="kc-pagamento">${getPagamentoBadge(o)}</div>` : ''}
-            <div class="kc-footer"><span class="kc-date">${o.data}</span><button class="btn btn-secondary btn-sm" onclick="openDocModal('os','${o.id}')">✏️ Abrir</button></div>
+            <div class="kc-footer"><span class="kc-date">${o.data}</span>
+                <div class="kc-acoes">
+                    <button class="btn btn-secondary btn-sm" onclick="abrirMover('${o.id}')">${ico('mover')}Mover</button>
+                    <button class="btn btn-secondary btn-sm" onclick="openDocModal('os','${o.id}')">${ico('editar')}Abrir</button>
+                </div></div>
         </div>
     `;
     cardsAberta.innerHTML = abertas.map(buildCard).join('');
@@ -472,25 +487,66 @@ function renderOSKanban() {
     if (document.getElementById('cards-entregue')) document.getElementById('cards-entregue').innerHTML = entregues.map(buildCard).join('');
 }
 
+/* Arrastar-e-soltar só existe com mouse: no tablet e no celular o dedo não
+   dispara dragstart, e o quadro inteiro ficava só de leitura justamente nos
+   aparelhos da oficina. O botão "Mover" resolve nos dois, e num quadro de
+   quatro colunas escolher da lista é mais rápido que arrastar de qualquer
+   jeito. O arrastar continua funcionando para quem usa o computador. */
+const COLUNAS_OS = [
+    { status: 'aberta', nome: 'Aberta', tom: 'blue' },
+    { status: 'em_andamento', nome: 'Em andamento', tom: 'brand' },
+    { status: 'finalizada', nome: 'Finalizada', tom: 'success' },
+    { status: 'entregue', nome: 'Entregue', tom: 'blue' },
+];
+const nomeColuna = (st) => (COLUNAS_OS.find(c => c.status === st) || {}).nome || st;
+
+/* Mostra na hora e desfaz se o banco recusar: um quadro que mudou de coluna
+   sem ter gravado é pior que um quadro lento. */
+async function moverOS(osId, novoStatus) {
+    const o = db.os.find(x => x.id == osId);
+    if (!o || o.status === novoStatus) return;
+    const anterior = o.status;
+    o.status = novoStatus;
+    renderOSKanban();
+    const { error } = await supabaseClient.from('os').update({ status: novoStatus }).eq('id', osId);
+    if (error) {
+        o.status = anterior;
+        renderOSKanban();
+        console.error(error);
+        return toast('Não deu para mover: ' + mensagemErro(error), true);
+    }
+    // Concluir uma OS mexe no faturamento, na carteira e na comissão.
+    renderizarTelas();
+    toast('OS #' + osId + ' agora está em ' + nomeColuna(novoStatus));
+}
+
+function abrirMover(osId) {
+    const o = db.os.find(x => x.id == osId); if (!o) return;
+    const info = document.getElementById('mover-info');
+    if (info) info.textContent = (o.veiculo || '') + ' ' + (o.placa ? '· ' + o.placa : '') +
+        ' · ' + (o.cliente || 'sem nome') + ' · hoje em ' + nomeColuna(o.status);
+    const tit = document.getElementById('mover-titulo');
+    if (tit) tit.textContent = 'Mover OS #' + o.id + ' para';
+    const box = document.getElementById('mover-opcoes');
+    if (box) box.innerHTML = COLUNAS_OS.filter(c => c.status !== o.status).map(c =>
+        `<button type="button" class="mover-opcao" onclick="escolherMover('${o.id}','${c.status}')">
+            <i class="tag-ponto tag-ponto-${c.tom}"></i><span>${c.nome}</span>
+        </button>`).join('');
+    const m = document.getElementById('modal-mover');
+    if (m) m.style.display = 'flex';
+}
+
+function fecharMover() { const m = document.getElementById('modal-mover'); if (m) m.style.display = 'none'; }
+async function escolherMover(osId, st) { fecharMover(); await moverOS(osId, st); }
+
 function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
 function allowDrop(ev) { ev.preventDefault(); }
 async function drop(ev) {
     ev.preventDefault();
     const data = ev.dataTransfer.getData("text");
-    const cardElement = document.getElementById(data);
     const targetColumn = ev.target.closest('.kanban-column');
-    if (cardElement && targetColumn) {
-        targetColumn.querySelector('.kanban-cards').appendChild(cardElement);
-        const newStatus = targetColumn.getAttribute('data-status');
-        const osId = data.replace('kcard-', '');
-        const osIndex = db.os.findIndex(o => o.id == osId);
-        if (osIndex !== -1) {
-            db.os[osIndex].status = newStatus;
-            renderOSKanban();
-            const { error } = await supabaseClient.from('os').update({ status: newStatus }).eq('id', osId);
-            if (error) toast("Erro ao atualizar status", true); else toast("Status atualizado!");
-        }
-    }
+    if (!data || !targetColumn) return;
+    await moverOS(data.replace('kcard-', ''), targetColumn.getAttribute('data-status'));
 }
 
 /* =========================================
@@ -559,7 +615,7 @@ function montarBarraEtapas() {
     el.innerHTML = ETAPAS.map(e => {
         const estado = e.n === etapaAtual ? 'atual' : (e.n < etapaAtual ? 'feita' : '');
         return `<button type="button" class="etapa-passo ${estado}" onclick="irParaEtapa(${e.n})">
-            <span class="etapa-num">${e.n < etapaAtual ? '✓' : e.n}</span><span class="etapa-nome">${e.nome}</span>
+            <span class="etapa-num">${e.n < etapaAtual ? ico('ok', 13) : e.n}</span><span class="etapa-nome">${e.nome}</span>
         </button>`;
     }).join('');
 }
@@ -607,8 +663,8 @@ function openDocModal(type, editId = null) {
 
     const statusSelect = document.getElementById('d-status');
     if (statusSelect) {
-        if (type === 'os') statusSelect.innerHTML = `<option value="aberta">🔵 Aberta</option><option value="em_andamento">🟡 Andamento</option><option value="finalizada">🟢 Finalizada</option><option value="entregue">🔷 Entregue</option>`;
-        else statusSelect.innerHTML = `<option value="orcamento">🟡 Pendente (Orçamento)</option><option value="rejeitado">🔴 Rejeitado</option>`;
+        if (type === 'os') statusSelect.innerHTML = `<option value="aberta">Aberta</option><option value="em_andamento">Em andamento</option><option value="finalizada">Finalizada</option><option value="entregue">Entregue</option>`;
+        else statusSelect.innerHTML = `<option value="orcamento">Pendente</option><option value="rejeitado">Rejeitado</option>`;
     }
 
     montarSelectsPagamento();
@@ -722,7 +778,7 @@ function mostrarAlertaGarantia(veiculoId, placa) {
     }
 
     el.style.display = 'block';
-    el.innerHTML = '<strong>⚠️ Este carro tem serviço em garantia</strong>' +
+    el.innerHTML = '<strong>' + ico('garantia', 15) + ' Este carro tem serviço em garantia</strong>' +
         '<ul>' + emGarantia.slice(0, 4).map(g =>
             `<li>${g.descricao} — feito há ${g.dias} ${g.dias === 1 ? 'dia' : 'dias'} (OS #${g.osId}, garantia de ${g.prazo} dias, restam ${g.restam})</li>`
         ).join('') + '</ul>' +
@@ -857,7 +913,7 @@ function botaoChecklist(tipo, item) {
         ? stateOS.pecas.find(p => p.catalogoId === item.id)
         : stateOS.servicos.find(sv => sv.catalogoId === item.id);
     const acao = tipo === 'pecas' ? 'togglePeca' : 'toggleServico';
-    return `<button type="button" class="checklist-btn ${ativo ? 'checklist-btn-active' : ''}" onclick="${acao}('${item.id}', '${item.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativo ? '✓' : '+'}</span>${item.nome}</button>`;
+    return `<button type="button" class="checklist-btn ${ativo ? 'checklist-btn-active' : ''}" onclick="${acao}('${item.id}', '${item.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativo ? ico('ok', 13) : ico('mais', 13)}</span>${item.nome}</button>`;
 }
 
 /* Com quase 100 itens no catálogo, a lista inteira ocupava 4 telas de rolagem
@@ -893,7 +949,7 @@ function montarChecklist(tipo, lista, termo) {
         : '';
 
     if (!topo.length) return mostrar.map(botao).join('') + maisBotao;
-    return '<div class="checklist-grupo">★ Mais usados</div>' + topo.map(botao).join('')
+    return '<div class="checklist-grupo">Mais usados</div>' + topo.map(botao).join('')
         + '<div class="checklist-grupo">Todos</div>' + mostrar.map(botao).join('') + maisBotao;
 }
 
@@ -911,7 +967,7 @@ function renderChecklistServicos() {
     renderServicosAtivos();
 }
 function toggleServico(catalogoId, nome) { const idx = stateOS.servicos.findIndex(s => s.catalogoId === catalogoId); if (idx >= 0) stateOS.servicos.splice(idx, 1); else stateOS.servicos.push({ id: Date.now().toString(), catalogoId, descricao: nome.toUpperCase(), mecanicoId: (session.role === 'mecanico' ? session.id : ''), qtd: 1, valor: 0 }); renderChecklistServicos(); updateTotals(); }
-function renderServicosAtivos() { const el = document.getElementById('servicos-ativos'); if (!el) return; el.innerHTML = stateOS.servicos.length ? `<div class="ativo-header-row"><span>Serviço</span><span>Mecânico</span><span>Qtd</span><span>R$ Unit.</span><span></span></div>` + stateOS.servicos.map(s => `<div class="ativo-row"><span class="ativo-nome">${s.descricao}</span><select onchange="updS('${s.id}','mecanicoId',this.value)"><option value="">Loja</option>${db.mecanicos.map(m => `<option value="${m.id}" ${s.mecanicoId == m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}</select><input type="number" value="${s.qtd}" oninput="updS('${s.id}','qtd',this.value)"><input type="text" inputmode="decimal" value="${s.valor}" oninput="updS('${s.id}','valor',this.value)"><button class="btn btn-danger btn-sm" onclick="removeServico('${s.id}')">✕</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
+function renderServicosAtivos() { const el = document.getElementById('servicos-ativos'); if (!el) return; el.innerHTML = stateOS.servicos.length ? `<div class="ativo-header-row"><span>Serviço</span><span>Mecânico</span><span>Qtd</span><span>R$ Unit.</span><span></span></div>` + stateOS.servicos.map(s => `<div class="ativo-row"><span class="ativo-nome">${s.descricao}</span><select onchange="updS('${s.id}','mecanicoId',this.value)"><option value="">Loja</option>${db.mecanicos.map(m => `<option value="${m.id}" ${s.mecanicoId == m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}</select><input type="number" value="${s.qtd}" oninput="updS('${s.id}','qtd',this.value)"><input type="text" inputmode="decimal" value="${s.valor}" oninput="updS('${s.id}','valor',this.value)"><button class="btn btn-danger btn-sm" onclick="removeServico('${s.id}')" title="Remover">${ico('fechar', 14)}</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
 function removeServico(id) { stateOS.servicos = stateOS.servicos.filter(s => s.id !== id); renderChecklistServicos(); updateTotals(); }
 
 function renderChecklistPecas() {
@@ -922,7 +978,7 @@ function renderChecklistPecas() {
     renderPecasAtivas();
 }
 function togglePeca(catalogoId, nome) { const idx = stateOS.pecas.findIndex(p => p.catalogoId === catalogoId); if (idx >= 0) stateOS.pecas.splice(idx, 1); else stateOS.pecas.push({ id: Date.now().toString(), catalogoId, nome: nome.toUpperCase(), qtd: 1, custo: 0, venda: 0 }); renderChecklistPecas(); updateTotals(); }
-function renderPecasAtivas() { const el = document.getElementById('pecas-ativas'); if (!el) return; el.innerHTML = stateOS.pecas.length ? `<div class="ativo-header-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span>Peça</span><span>Qtd</span><span>Custo</span><span>Venda</span><span></span></div>` + stateOS.pecas.map(p => `<div class="ativo-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span class="ativo-nome">${p.nome}</span><input type="number" value="${p.qtd}" oninput="updP('${p.id}','qtd',this.value)"><input type="text" inputmode="decimal" value="${p.custo}" oninput="updP('${p.id}','custo',this.value)"><input type="text" inputmode="decimal" value="${p.venda}" oninput="updP('${p.id}','venda',this.value)"><button class="btn btn-danger btn-sm" onclick="removePeca('${p.id}')">✕</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
+function renderPecasAtivas() { const el = document.getElementById('pecas-ativas'); if (!el) return; el.innerHTML = stateOS.pecas.length ? `<div class="ativo-header-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span>Peça</span><span>Qtd</span><span>Custo</span><span>Venda</span><span></span></div>` + stateOS.pecas.map(p => `<div class="ativo-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span class="ativo-nome">${p.nome}</span><input type="number" value="${p.qtd}" oninput="updP('${p.id}','qtd',this.value)"><input type="text" inputmode="decimal" value="${p.custo}" oninput="updP('${p.id}','custo',this.value)"><input type="text" inputmode="decimal" value="${p.venda}" oninput="updP('${p.id}','venda',this.value)"><button class="btn btn-danger btn-sm" onclick="removePeca('${p.id}')" title="Remover">${ico('fechar', 14)}</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
 function removePeca(id) { stateOS.pecas = stateOS.pecas.filter(p => p.id !== id); renderChecklistPecas(); updateTotals(); }
 
 function updS(id, f, v) { const s = stateOS.servicos.find(x => x.id == id); if (s) s[f] = (f === 'valor' || f === 'qtd') ? valorBR(v) : v; updateTotals(); }
@@ -1227,9 +1283,9 @@ async function deleteMec(id) {
 
 function renderMecanicos() {
     const el = document.getElementById('mec-grid'); if (!el) return;
-    el.innerHTML = db.mecanicos.map(m => `<div class="stat-card"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><h3 style="font-size:1rem;">${m.nome}</h3><button class="btn btn-secondary btn-sm" onclick="openMecModal('${m.id}')">✏️</button></div><div class="label" style="margin-top:12px;">Comissão Ativa</div><div class="value" style="color:var(--brand); font-size:1.4rem;">${m.comissao}%</div><div class="label" style="margin-top:12px;">Senha</div><div style="font-size:12px; color:var(--text-dim); margin-top:6px;">Guardada com segurança. Para trocar, toque em ✏️.</div><button class="btn btn-danger btn-sm" style="width:100%; margin-top:15px;" onclick="deleteMec('${m.id}')">✕ Remover</button></div>`).join('') || '<p style="text-align:center; color:var(--text-dim); width:100%;">Vazio</p>';
+    el.innerHTML = db.mecanicos.map(m => `<div class="stat-card"><div style="display:flex; justify-content:space-between; align-items:flex-start;"><h3 style="font-size:1rem;">${m.nome}</h3><button class="btn btn-secondary btn-sm" onclick="openMecModal('${m.id}')" title="Editar">${ico('editar')}</button></div><div class="label" style="margin-top:12px;">Comissão Ativa</div><div class="value" style="color:var(--brand); font-size:1.4rem;">${m.comissao}%</div><div class="label" style="margin-top:12px;">Senha</div><div style="font-size:12px; color:var(--text-dim); margin-top:6px;">Guardada com segurança. Para trocar, use o botão de editar.</div><button class="btn btn-danger btn-sm" style="width:100%; margin-top:15px;" onclick="deleteMec('${m.id}')">${ico('lixeira', 14)}Remover</button></div>`).join('') || '<p style="text-align:center; color:var(--text-dim); width:100%;">Vazio</p>';
 }
-function renderCatalogo() { const elP = document.getElementById('catalog-pecas-list'); if (elP) elP.innerHTML = db.catalogo_pecas.map(p => `<div class="catalog-item"><div class="catalog-item-info"><strong>${p.nome}</strong><span class="catalog-badge badge-peca">Peça</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('pecas', '${p.id}')">✕</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; const elS = document.getElementById('catalog-servicos-list'); if (elS) elS.innerHTML = db.catalogo_servicos.map(s => `<div class="catalog-item"><div class="catalog-item-info"><strong>${s.nome}</strong><span class="catalog-badge badge-servico">Serviço</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('servicos', '${s.id}')">✕</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; } async function addCatalogItem(type) { const inp = document.getElementById(type === 'pecas' ? 'cat-peca-nome' : 'cat-servico-nome'); const nome = inp.value.trim().toUpperCase(); if (!nome) return; await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').insert([{ id: Date.now().toString(), nome }]); inp.value = ''; await carregarDados(); toast("Adicionado!"); } async function deleteCatalogItem(type, id) { await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').delete().eq('id', id); await carregarDados(); toast("Removido!"); }
+function renderCatalogo() { const elP = document.getElementById('catalog-pecas-list'); if (elP) elP.innerHTML = db.catalogo_pecas.map(p => `<div class="catalog-item"><div class="catalog-item-info"><strong>${p.nome}</strong><span class="catalog-badge badge-peca">Peça</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('pecas', '${p.id}')" title="Remover">${ico('lixeira', 14)}</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; const elS = document.getElementById('catalog-servicos-list'); if (elS) elS.innerHTML = db.catalogo_servicos.map(s => `<div class="catalog-item"><div class="catalog-item-info"><strong>${s.nome}</strong><span class="catalog-badge badge-servico">Serviço</span></div><button class="btn btn-danger btn-sm" onclick="deleteCatalogItem('servicos', '${s.id}')" title="Remover">${ico('lixeira', 14)}</button></div>`).join('') || '<p class="catalog-empty">Vazio</p>'; } async function addCatalogItem(type) { const inp = document.getElementById(type === 'pecas' ? 'cat-peca-nome' : 'cat-servico-nome'); const nome = inp.value.trim().toUpperCase(); if (!nome) return; await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').insert([{ id: Date.now().toString(), nome }]); inp.value = ''; await carregarDados(); toast("Adicionado!"); } async function deleteCatalogItem(type, id) { await supabaseClient.from(type === 'pecas' ? 'catalogo_pecas' : 'catalogo_servicos').delete().eq('id', id); await carregarDados(); toast("Removido!"); }
 function filterRelatorios() { renderRelatorios(); } function filterRelatoriosToday() { const t = getTodayString(); document.getElementById('r-data-inicio').value = t; document.getElementById('r-data-fim').value = t; renderRelatorios(); } function clearRelatoriosFilter() { document.getElementById('r-data-inicio').value = ''; document.getElementById('r-data-fim').value = ''; renderRelatorios(); } function renderRelatorios() { const el = document.getElementById('r-mec-body'); if (!el) return; const dIni = document.getElementById('r-data-inicio').value; const dFim = document.getElementById('r-data-fim').value; const rank = db.mecanicos.map(m => { let mo = 0, com = 0; db.os.filter(o => osConcluida(o)).forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { o.servicos.forEach(s => { if (s.mecanicoId == m.id) { mo += (Number(s.valor) * Number(s.qtd)); com += (Number(s.comissaoVal) || 0); } }); } }); return { nome: m.nome, mo, com }; }).sort((a, b) => b.mo - a.mo); el.innerHTML = rank.map(m => `<tr><td>${m.nome}</td><td>${fmt(m.mo)}</td><td style="color:var(--brand)">${fmt(m.com)}</td></tr>`).join(''); }
 /* =========================================
    COBRANÇAS — quem deve, quanto e há quanto tempo
@@ -1334,8 +1390,8 @@ function renderCobrancas() {
             <td style="color:${falta > 0 ? 'var(--danger)' : 'var(--text-dim)'}; font-weight:700;">${fmt(falta)}</td>
             <td>${nomeForma(o.forma_pagamento) || '--'}</td>
             <td style="white-space:nowrap;">
-                ${falta > 0 ? `<button class="btn btn-success btn-sm" onclick="quitarOS('${o.id}')">✓ Quitar</button>` : ''}
-                <button class="btn btn-secondary btn-sm" onclick="openDocModal('os','${o.id}')">✏️ Abrir</button>
+                ${falta > 0 ? `<button class="btn btn-success btn-sm" onclick="quitarOS('${o.id}')">${ico('ok')}Quitar</button>` : ''}
+                <button class="btn btn-secondary btn-sm" onclick="openDocModal('os','${o.id}')">${ico('editar')}Abrir</button>
             </td>
         </tr>`;
     }).join('') || `<tr><td colspan="10" style="text-align:center; color:var(--text-dim);">Nenhuma ordem nesta situação.</td></tr>`;
@@ -1382,7 +1438,7 @@ function renderVeiculos() {
         <td>${r.qtd}</td>
         <td>${r.ultima || '--'}</td>
         <td>${fmt(r.total)}${r.aberto > 0 ? ` <span style="color:var(--danger); font-size:11px; font-weight:700;">(${fmt(r.aberto)} em aberto)</span>` : ''}</td>
-        <td><button class="btn btn-secondary btn-sm" onclick="abrirFicha('${r.v.id}')">📋 Ficha</button></td>
+        <td><button class="btn btn-secondary btn-sm" onclick="abrirFicha('${r.v.id}')">${ico('orcamento')}Ficha</button></td>
     </tr>`).join('') || `<tr><td colspan="9" style="text-align:center; color:var(--text-dim);">${termo ? 'Nenhum veículo encontrado.' : 'Nenhum veículo ainda. Eles são cadastrados sozinhos quando você grava uma OS com placa.'}</td></tr>`;
 }
 
@@ -1411,7 +1467,7 @@ function abrirFicha(veiculoId) {
         <td style="max-width:280px;">${(o.servicos || []).map(sv => sv.descricao).join(', ') || '--'}</td>
         <td>${fmt(o.total)}</td>
         <td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}${getRetornoBadge(o)}</td>
-        <td><button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-ficha').style.display='none'; openDocModal('os','${o.id}')">✏️</button></td>
+        <td><button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-ficha').style.display='none'; openDocModal('os','${o.id}')">${ico('editar')}</button></td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center; color:var(--text-dim);">Nenhum serviço registrado neste veículo.</td></tr>';
 
     document.getElementById('modal-ficha').style.display = 'flex';
@@ -1477,7 +1533,30 @@ function configurarCliquesNav() {
 
 function doLogout() { localStorage.clear(); sessionStorage.clear(); location.reload(); }
 function toggleMenu() { const nav = document.getElementById('main-nav'); if (!nav) return; nav.classList.toggle('open'); const overlay = document.getElementById('mobile-menu-overlay'); if (overlay) overlay.style.display = nav.classList.contains('open') ? 'block' : 'none'; }
-function togglePwd(id, btn) { const i = document.getElementById(id); i.type = i.type === 'password' ? 'text' : 'password'; btn.textContent = i.type === 'password' ? '👁' : '🙈'; }
+function togglePwd(id, btn) { const i = document.getElementById(id); i.type = i.type === 'password' ? 'text' : 'password'; btn.innerHTML = ico(i.type === 'password' ? 'olho' : 'olhoFechado'); }
+
+/* =========================================
+   O QUE OS OUTROS ARQUIVOS PODEM USAR
+   `let` no topo de um script não vira propriedade de window — só `function` e
+   `var` viram. Como charts.js e dashboard-bi.js liam `window.db`, recebiam
+   undefined e saíam antes de desenhar: três dos quatro gráficos do painel
+   (tendência, dia da semana e situação das ordens) nunca chegaram a ser
+   desenhados uma vez sequer. `window.fmt` também faltava, então o pouco que
+   aparecia mostrava "R$ 4095.00" em vez de "R$ 4.095,00".
+
+   Publicar de propósito, num lugar só, em vez de depender de acidente de
+   escopo. `db` nunca é trocado por outro objeto — só as tabelas dentro dele
+   são —, então a referência continua valendo depois de recarregar os dados.
+========================================= */
+window.db = db;
+window.fmt = fmt;
+window.valorBR = valorBR;
+window.osConcluida = osConcluida;
+window.aReceberDaOS = aReceberDaOS;
+window.parseBRDateToISO = parseBRDateToISO;
+window.getStatusBadge = getStatusBadge;
+window.getPagamentoBadge = getPagamentoBadge;
+window.getRetornoBadge = getRetornoBadge;
 
 document.addEventListener('DOMContentLoaded', () => {
     carregarDados();

@@ -23,8 +23,16 @@
         }
     }
 
-    var GRID = "rgba(255,255,255,0.06)";
-    var TXT = "#9a9a9a";
+    /* "finalizada" sozinho deixa de fora tudo que foi ENTREGUE — e entregue é o
+       estado final normal de uma OS. Com os cinco carros do dia simulado, três
+       estavam entregues: R$ 3.525,00 de R$ 4.095,00 sumiam destes gráficos.
+       Mesma regra do script.js, num lugar só. */
+    var concluida = (typeof window.osConcluida === "function")
+        ? window.osConcluida
+        : function (o) { return o && (o.status === "finalizada" || o.status === "entregue"); };
+
+    var GRID = "rgba(255,255,255,0.05)";
+    var TXT = "#8b95a7";
 
     /* ---------- 1) Faturamento × Custos × Comissões × Lucro (barras) ---------- */
     window.renderFaturamentoChart = function (labels, fat, custo, comissao) {
@@ -53,7 +61,7 @@
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: {
-                    legend: { labels: { color: "#ddd", usePointStyle: true, pointStyle: "rectRounded", padding: 16 } },
+                    legend: { labels: { color: "#e6eaf0", usePointStyle: true, pointStyle: "rectRounded", padding: 16 } },
                     tooltip: { callbacks: { label: function (x) { return x.dataset.label + ": " + money(x.raw); } } }
                 },
                 scales: {
@@ -71,23 +79,23 @@
         destruir("ticketChart");
         if (!window.db || !Array.isArray(db.os)) return;
 
-        var cont = { aberta: 0, em_andamento: 0, finalizada: 0, orcamento: 0, rejeitado: 0 };
+        var cont = { aberta: 0, em_andamento: 0, finalizada: 0, entregue: 0, orcamento: 0, rejeitado: 0 };
         db.os.forEach(function (o) { if (cont[o.status] !== undefined) cont[o.status]++; });
 
-        var labels = ["Abertas", "Em andamento", "Finalizadas", "Orçamentos", "Rejeitadas"];
-        var dados = [cont.aberta, cont.em_andamento, cont.finalizada, cont.orcamento, cont.rejeitado];
-        var cores = ["#3b82f6", "#e8a020", "#22c55e", "#f59e0b", "#ef4444"];
+        var labels = ["Abertas", "Em andamento", "Finalizadas", "Entregues", "Orçamentos", "Rejeitadas"];
+        var dados = [cont.aberta, cont.em_andamento, cont.finalizada, cont.entregue, cont.orcamento, cont.rejeitado];
+        var cores = ["#5b93f0", "#e8a020", "#3ec97a", "#22d3ee", "#a78bfa", "#ef5a5a"];
         var total = dados.reduce(function (a, b) { return a + b; }, 0);
 
         if (total === 0) { labels = ["Nenhuma OS ainda"]; dados = [1]; cores = ["#333"]; }
 
         new Chart(c.getContext("2d"), {
             type: "doughnut",
-            data: { labels: labels, datasets: [{ data: dados, backgroundColor: cores, borderColor: "#0e0e0e", borderWidth: 3, hoverOffset: 6 }] },
+            data: { labels: labels, datasets: [{ data: dados, backgroundColor: cores, borderColor: "#181d26", borderWidth: 3, hoverOffset: 6 }] },
             options: {
                 responsive: true, maintainAspectRatio: false, cutout: "62%",
                 plugins: {
-                    legend: { position: "right", labels: { color: "#ddd", usePointStyle: true, pointStyle: "circle", padding: 12, font: { size: 12 } } },
+                    legend: { position: "right", labels: { color: "#e6eaf0", usePointStyle: true, pointStyle: "circle", padding: 12, font: { size: 12 } } },
                     tooltip: {
                         callbacks: {
                             label: function (x) {
@@ -111,7 +119,7 @@
 
         var nomes = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
         var soma = [0, 0, 0, 0, 0, 0, 0];
-        db.os.filter(function (o) { return o.status === "finalizada"; }).forEach(function (o) {
+        db.os.filter(concluida).forEach(function (o) {
             var iso = o.dataISO || (typeof parseBRDateToISO === "function" ? parseBRDateToISO(o.data) : null);
             if (!iso) return;
             var d = new Date(iso + "T12:00:00");
@@ -165,7 +173,7 @@
         else if (key === "90d") ini.setDate(hoje.getDate() - 89);
         else if (key === "month") ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1, 12);
         else if (key === "all") {
-            var datas = (db.os || []).filter(function (o) { return o.status === "finalizada"; })
+            var datas = (db.os || []).filter(concluida)
                 .map(function (o) { return o.dataISO || (typeof parseBRDateToISO === "function" ? parseBRDateToISO(o.data) : null); })
                 .filter(Boolean).sort();
             if (datas.length) ini = new Date(datas[0] + "T12:00:00");
@@ -182,7 +190,7 @@
 
         var r = rangeFor(revPeriod);
         var mapa = {};
-        db.os.filter(function (o) { return o.status === "finalizada"; }).forEach(function (o) {
+        db.os.filter(concluida).forEach(function (o) {
             var iso = o.dataISO || (typeof parseBRDateToISO === "function" ? parseBRDateToISO(o.data) : null);
             if (iso) mapa[iso] = (mapa[iso] || 0) + (Number(o.total) || 0);
         });
