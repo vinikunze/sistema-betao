@@ -171,7 +171,7 @@ logado. Conferido com a chave anon depois de aplicar: zero linha em `os`,
 
 ## O que o teste cobre agora
 
-173 casos automáticos, todos passando, em 13 baterias: busca, mais usados,
+191 casos automáticos, todos passando, em 13 baterias: busca, mais usados,
 colisão de número de OS, pagamentos, cobranças, entrada no sistema, veículos,
 garantia, etapas do formulário, PDF, **valores em reais** (bateria criada por
 causa dos erros 2, 4 e 5 deste relatório), o **quadro no toque** e a

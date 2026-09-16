@@ -1311,27 +1311,76 @@ tr:hover td {
         gap: 0.8rem;
     }
 
+    /* A BARRA DE FILTRO NO CELULAR
+       Empilhada, cada controle virava uma faixa de largura inteira: cinco
+       faixas, 299px de uma tela de 844. Quem abria o painel no celular via
+       formulário de filtro, e o faturamento do dia só começava aos 409px.
+       Numa tela menor (um iPhone SE tem 667) sobrava um cartão.
+
+       Agora é grade de 6 colunas: as duas datas dividem a primeira linha, os
+       três botões dividem a segunda. Some a faixa de rolagem e o dinheiro
+       aparece primeiro, que é o que alguém abre o sistema para ver. */
     .filter-bar {
-        padding: 1rem;
+        padding: 0.9rem 1rem;
         flex-direction: column;
         align-items: stretch;
-        gap: 8px;
+        gap: 10px;
     }
 
     .filter-controls {
-        flex-direction: column;
-        align-items: stretch;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
         gap: 8px;
         width: 100%;
     }
 
     .date-input-wrap {
+        grid-column: span 3;
         justify-content: space-between;
         width: 100%;
+        padding: 8px 10px;
+        /* 44px é o mínimo para um dedo com a mão suja — vale aqui como vale
+           nos botões do quadro. */
+        min-height: 44px;
+    }
+
+    /* "De" e "Até" ao lado do campo comiam a largura: em 375px a data saía
+       cortada, "dd/mm/a" com o calendário espremido na borda. O rótulo sobe
+       para cima do campo — cabe a data inteira e a caixa cresce 8px. */
+    .date-input-wrap {
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: center;
+        gap: 1px;
+    }
+
+    .date-input-wrap label {
+        font-size: 0.65rem;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .date-input-wrap input {
+        width: 100%;
+        min-width: 0;
+        /* Abaixo de 16px o iPhone dá zoom sozinho ao tocar no campo, e a tela
+           fica torta até a pessoa perceber e voltar com dois dedos. */
+        font-size: 16px;
     }
 
     .filter-controls .btn {
+        grid-column: span 2;
         width: 100%;
+        min-height: 44px;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+
+    /* Cobranças não tem data: são quatro botões. Em três colunas ficariam três
+       em cima e um sozinho embaixo; em metade da largura ficam dois e dois. */
+    #cobranca-filtros .btn {
+        grid-column: span 3;
     }
 
     .responsive-grid {
