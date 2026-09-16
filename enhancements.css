@@ -833,3 +833,71 @@ textarea:focus {
     .rodape-acoes .btn { flex: 1; }
     #btn-cancelar-doc { display: none; }   /* o ✕ do topo já cancela */
 }
+
+/* =========================================
+   MENOS ENFEITE
+   Este arquivo trouxe gradiente em cartão, brilho atrás do texto do menu,
+   cartão que pula 4px no hover e animação de mola a cada troca de página.
+   Isso é linguagem de página de venda. Numa ferramenta que se olha oito horas
+   por dia, movimento e brilho cansam e atrapalham a leitura do número. Fica o
+   que serve — transição curta de cor —, sai o resto.
+========================================= */
+.stat-card {
+    background: var(--bg-card) !important;
+    transition: border-color var(--dur) var(--ease-out) !important;
+}
+
+.stat-card:hover {
+    transform: none;
+    border-color: var(--border-forte) !important;
+    box-shadow: none;
+}
+
+.kanban-card:hover {
+    transform: none;
+    border-color: var(--border-forte);
+    box-shadow: none;
+}
+
+.nav-item.active {
+    text-shadow: none;
+}
+
+.nav-item::after {
+    box-shadow: none;
+    border-radius: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    transition: opacity var(--dur) var(--ease-out);
+    transform: scaleX(1);
+}
+
+.nav-item:hover::after {
+    opacity: 0;
+}
+
+/* A página troca na hora. Deslizar 12px a cada clique é meio segundo perdido
+   dezenas de vezes por dia, e some com a referência de onde estava a linha. */
+.page.active {
+    animation: none;
+}
+
+.stat-card-link:active {
+    transform: none;
+}
+
+/* Números e títulos voltam para a fonte de texto. Syne em peso 800 é fonte de
+   identidade: boa no logotipo, cansativa num valor lido cem vezes por dia. */
+.bi-metric-val,
+.rev-total,
+.bi-highlight-head,
+.bi-title {
+    font-family: var(--font-body);
+    font-weight: 600;
+}
+
+.bi-metric-val,
+.rev-total {
+    font-variant-numeric: tabular-nums;
+}

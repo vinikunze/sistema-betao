@@ -6,7 +6,7 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
-    <title>Betão Auto Center — Gestão Premium</title>
+    <title>Betão Auto Center</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@400;500;700&display=swap"
         rel="stylesheet">
@@ -16,13 +16,14 @@
     <meta name="theme-color" content="#e8a020">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3204/3204482.png">
     <link rel="stylesheet" href="enhancements.css">
+    <script src="icones.js"></script>
     <script src="enhancements.js"></script>
 </head>
 
 <body>
 
     <div id="lockout-overlay">
-        <div class="lockout-icon">🔒</div>
+        <div class="lockout-icon"><span data-ico="chave" data-ico-tam="28"></span></div>
         <div class="lockout-title">Acesso Bloqueado</div>
         <div class="lockout-timer" id="lockout-timer">5:00</div>
     </div>
@@ -30,9 +31,9 @@
     <div id="auth-screen">
         <div class="auth-box">
             <div class="auth-logo">
-                <div class="auth-logo-icon">🔧</div>
+                <div class="auth-logo-icon"><span data-ico="ferramenta" data-ico-tam="26"></span></div>
                 <h1>Betão Auto Center</h1>
-                <p>Gestão Cloud</p>
+                <p>Sistema interno</p>
             </div>
             <div class="auth-tabs">
                 <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sócio</div>
@@ -42,17 +43,17 @@
             <div id="diag-resultado" class="diag-box"></div>
             <div id="form-login">
                 <div id="login-error" class="auth-error"></div>
-                <h3 id="login-title" style="margin-bottom:15px; font-size:14px; color:var(--brand)">Acesso Proprietário
+                <h3 id="login-title" style="margin-bottom:15px; font-size:14px; color:var(--brand)">Acesso do sócio
                 </h3>
                 <div class="form-group"><label id="label-email">E-mail do Sócio</label><input type="text" id="l-email"
                         placeholder="seu@email.com"></div>
                 <div class="form-group"><label>Senha</label>
                     <div class="input-icon-wrap"><input type="password" id="l-senha" placeholder="••••••••"><button
-                            class="input-eye" type="button" onclick="togglePwd('l-senha',this)">👁</button></div>
+                            class="input-eye" type="button" onclick="togglePwd('l-senha',this)"><span data-ico="olho"></span></button></div>
                 </div>
                 <div class="checkbox-group"><input type="checkbox" id="l-lembrar" checked><label for="l-lembrar">Manter
                         conectado</label></div>
-                <button class="btn-auth" id="btn-login" onclick="doLogin()">Entrar no Sistema</button>
+                <button class="btn-auth" id="btn-login" onclick="doLogin()">Entrar</button>
             </div>
             <div id="form-register" class="hidden">
                 <div id="reg-error" class="auth-error"></div>
@@ -62,7 +63,7 @@
                 <div class="form-group"><label>Código da Empresa</label><input type="password" id="r-codigo"></div>
                 <div class="form-group"><label>Senha</label><input type="password" id="r-senha"></div>
                 <div class="form-group"><label>Confirmar</label><input type="password" id="r-confirma"></div>
-                <button class="btn-auth" onclick="doRegister()">Criar Conta de Sócio</button>
+                <button class="btn-auth" onclick="doRegister()">Criar conta</button>
             </div>
             <button type="button" class="diag-link" onclick="testarConexao()">Não está entrando? Testar conexão</button>
         </div>
@@ -75,25 +76,25 @@
         <header class="top-header">
             <div class="top-header-left">
                 <div class="logo-brand">
-                    <div class="logo-icon">🔧</div>
-                    <div class="logo-text">Betão Auto Center<span id="sb-role-tag">Gestão Cloud</span></div>
+                    <div class="logo-icon"><span data-ico="ferramenta" data-ico-tam="18"></span></div>
+                    <div class="logo-text">Betão Auto Center<span id="sb-role-tag">Sistema interno</span></div>
                 </div>
             </div>
             <nav class="top-nav" id="main-nav"></nav>
             <div class="top-header-right">
                 <div class="desktop-actions" id="desktop-actions-box">
                     <button class="btn btn-primary" onclick="openDocModal('orcamento')" id="btn-novo-orcamento"
-                        style="display:none; background:var(--blue);">+ Orçamento</button>
+                        style="display:none; background:var(--blue);"><span data-ico="mais" data-ico-tam="15"></span>Orçamento</button>
                     <button class="btn btn-primary" onclick="openDocModal('os')" id="btn-nova-os"
-                        style="display:none;">+ Nova OS</button>
+                        style="display:none;"><span data-ico="mais" data-ico-tam="15"></span>Nova OS</button>
                 </div>
                 <div class="user-menu">
                     <div class="user-avatar" id="sb-avatar">--</div>
                     <div class="user-info hidden-mobile"><strong id="sb-uname">Usuário</strong><span
                             id="sb-role-display">Sócio</span></div>
-                    <button class="btn-logout" onclick="doLogout()" title="Sair">⏻</button>
+                    <button class="btn-logout" onclick="doLogout()" title="Sair"><span data-ico="sair" data-ico-tam="18"></span></button>
                 </div>
-                <button class="mobile-menu-btn" onclick="toggleMenu()">☰</button>
+                <button class="mobile-menu-btn" onclick="toggleMenu()"><span data-ico="menu" data-ico-tam="20"></span></button>
             </div>
         </header>
 
@@ -104,49 +105,49 @@
                     <div class="filter-bar">
                         <p
                             style="color: var(--text-main); font-weight: bold; margin: 0; display:flex; align-items:center; gap:8px;">
-                            📅 Desempenho Financeiro</p>
+                            Desempenho financeiro</p>
                         <div class="filter-controls">
                             <div class="date-input-wrap"
                                 onclick="document.getElementById('d-data-inicio').showPicker()"><label>De</label><input
                                     type="date" id="d-data-inicio"></div>
                             <div class="date-input-wrap" onclick="document.getElementById('d-data-fim').showPicker()">
                                 <label>Até</label><input type="date" id="d-data-fim"></div>
-                            <button class="btn btn-primary btn-sm" onclick="filterDashboard()">🔍 Filtrar</button>
+                            <button class="btn btn-primary btn-sm" onclick="filterDashboard()">Filtrar</button>
                             <div class="divider hidden-mobile"></div>
-                            <button class="btn btn-secondary btn-sm" onclick="filterToday()">Ver Hoje</button>
+                            <button class="btn btn-secondary btn-sm" onclick="filterToday()">Hoje</button>
                             <button class="btn btn-ghost btn-sm" onclick="clearDashboardFilter()">Limpar</button>
                         </div>
                     </div>
 
                     <div class="stats-grid">
-                        <div class="stat-card" style="border-top: 3px solid var(--brand);">
-                            <div class="label">Faturamento (OS)</div>
+                        <div class="stat-card">
+                            <div class="label">Faturamento</div>
                             <div class="value" id="d-fat" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-fat-trend">--</div>
                         </div>
-                        <div class="stat-card" style="border-top: 3px solid var(--success);">
-                            <div class="label">Lucro Líquido</div>
+                        <div class="stat-card">
+                            <div class="label">Lucro líquido</div>
                             <div class="value" id="d-lucro" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-lucro-trend">--</div>
                         </div>
-                        <div class="stat-card" style="border-top: 3px solid var(--danger);">
-                            <div class="label">Comissões Pagas</div>
+                        <div class="stat-card">
+                            <div class="label">Comissões</div>
                             <div class="value" id="d-comissao" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-comissao-trend">--</div>
                         </div>
-                        <div class="stat-card" style="border-top: 3px solid var(--blue);">
-                            <div class="label">Ticket Médio (OS)</div>
+                        <div class="stat-card">
+                            <div class="label">Ticket médio</div>
                             <div class="value" id="d-ticket" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-ticket-trend">--</div>
                         </div>
-                        <div class="stat-card" style="border-top: 3px solid var(--gold);">
-                            <div class="label">Taxa de Retorno</div>
+                        <div class="stat-card">
+                            <div class="label">Taxa de retorno</div>
                             <div class="value" id="d-retorno-taxa">0%</div>
                             <div class="kpi-trend" id="d-retorno-info">--</div>
                         </div>
-                        <div class="stat-card stat-card-link" style="border-top: 3px solid var(--danger);"
+                        <div class="stat-card stat-card-link"
                             onclick="irParaCobrancas()" title="Ver quem está devendo">
-                            <div class="label">A Receber (carteira) ›</div>
+                            <div class="label">A receber (carteira)</div>
                             <div class="value" id="d-receber" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-receber-info">--</div>
                         </div>
@@ -154,7 +155,7 @@
 
                     <div class="chart-wrapper revenue-hero">
                         <div class="revenue-hero-head">
-                            <div class="chart-header" style="margin:0;">📈 Faturamento ao longo do tempo</div>
+                            <div class="chart-header" style="margin:0;">Faturamento ao longo do tempo</div>
                             <div class="period-tabs" id="revenue-period-tabs">
                                 <button class="period-tab" data-p="7d" onclick="setRevenuePeriod('7d',this)">7 dias</button>
                                 <button class="period-tab active" data-p="month" onclick="setRevenuePeriod('month',this)">Este mês</button>
@@ -169,34 +170,34 @@
 
                     <div class="charts-grid">
                         <div class="chart-wrapper">
-                            <div class="chart-header">💰 Faturamento, Custos e Lucro</div>
+                            <div class="chart-header">Faturamento, custos e lucro</div>
                             <div class="chart-container"><canvas id="faturamentoChart"></canvas></div>
                         </div>
                         <div class="chart-wrapper">
-                            <div class="chart-header">📋 Situação das Ordens</div>
+                            <div class="chart-header">Situação das ordens</div>
                             <div class="chart-container"><canvas id="ticketChart"></canvas></div>
                         </div>
                     </div>
 
                     <div class="chart-wrapper" style="margin-bottom:1.25rem;">
-                        <div class="chart-header">📅 Faturamento por dia da semana</div>
+                        <div class="chart-header">Faturamento por dia da semana</div>
                         <div class="chart-container"><canvas id="weekdayChart"></canvas></div>
                     </div>
 
                     <!-- INTELIGÊNCIA DE VENDAS (BI) -->
                     <div class="bi-section">
                         <div class="bi-title-row">
-                            <h2 class="bi-title">Inteligência de Vendas</h2>
+                            <h2 class="bi-title">Leitura do período</h2>
                             <span class="bi-period" id="bi-period">—</span>
                         </div>
 
                         <div class="bi-highlights">
                             <div class="bi-highlight bi-good">
-                                <div class="bi-highlight-head">✅ O que está indo bem</div>
+                                <div class="bi-highlight-head"><span data-ico="ok" data-ico-tam="15"></span> O que está indo bem</div>
                                 <ul id="bi-good-list"></ul>
                             </div>
                             <div class="bi-highlight bi-warn">
-                                <div class="bi-highlight-head">⚠️ O que precisa de atenção</div>
+                                <div class="bi-highlight-head"><span data-ico="alerta" data-ico-tam="15"></span> O que precisa de atenção</div>
                                 <ul id="bi-warn-list"></ul>
                             </div>
                         </div>
@@ -266,25 +267,25 @@
                 <div class="page" id="page-os">
                     <div class="kanban-wrapper">
                         <div class="kanban-column" id="col-aberta" data-status="aberta">
-                            <div class="kanban-header badge-aberta">🔵 Abertas <span class="kanban-count"
+                            <div class="kanban-header badge-aberta">Abertas <span class="kanban-count"
                                     id="count-aberta">0</span></div>
                             <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
                                 id="cards-aberta"></div>
                         </div>
                         <div class="kanban-column" id="col-andamento" data-status="em_andamento">
-                            <div class="kanban-header badge-andamento">🟡 Em Andamento <span class="kanban-count"
+                            <div class="kanban-header badge-andamento">Em andamento <span class="kanban-count"
                                     id="count-andamento">0</span></div>
                             <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
                                 id="cards-andamento"></div>
                         </div>
                         <div class="kanban-column" id="col-finalizada" data-status="finalizada">
-                            <div class="kanban-header badge-finalizada">🟢 Finalizadas <span class="kanban-count"
+                            <div class="kanban-header badge-finalizada">Finalizadas <span class="kanban-count"
                                     id="count-finalizada">0</span></div>
                             <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
                                 id="cards-finalizada"></div>
                         </div>
                         <div class="kanban-column" id="col-entregue" data-status="entregue">
-                            <div class="kanban-header badge-entregue">🔷 Entregues <span class="kanban-count"
+                            <div class="kanban-header badge-entregue">Entregues <span class="kanban-count"
                                     id="count-entregue">0</span></div>
                             <div class="kanban-cards" ondrop="drop(event)" ondragover="allowDrop(event)"
                                 id="cards-entregue"></div>
@@ -294,7 +295,7 @@
 
                 <div class="page" id="page-cobrancas">
                     <div class="filter-bar">
-                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">💰 Cobranças</p>
+                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">Cobranças</p>
                         <div class="filter-controls" id="cobranca-filtros">
                             <button class="btn btn-sm btn-primary" data-cob="receber"
                                 onclick="setFiltroCobranca('receber')">A receber</button>
@@ -308,12 +309,12 @@
                     </div>
 
                     <div class="stats-grid">
-                        <div class="stat-card" style="border-top: 3px solid var(--danger);">
+                        <div class="stat-card">
                             <div class="label" id="cob-label-total">Total a receber</div>
                             <div class="value" id="cob-total">R$ 0,00</div>
                             <div class="kpi-trend" id="cob-qtd">--</div>
                         </div>
-                        <div class="stat-card" style="border-top: 3px solid var(--brand);">
+                        <div class="stat-card">
                             <div class="label">Mais antiga em aberto</div>
                             <div class="value" id="cob-antiga" style="font-size:1.4rem;">--</div>
                             <div class="kpi-trend" id="cob-antiga-info">--</div>
@@ -345,7 +346,7 @@
 
                 <div class="page" id="page-veiculos">
                     <div class="filter-bar">
-                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">🚗 Veículos e Clientes</p>
+                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">Veículos e clientes</p>
                         <div class="filter-controls" style="flex:1; max-width:520px;">
                             <input type="text" id="veic-busca" class="quick-add-input" data-no-upper
                                 placeholder="Buscar por placa, cliente ou modelo..."
@@ -376,16 +377,16 @@
 
                 <div class="page" id="page-mec-dashboard">
                     <div class="filter-bar">
-                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">📅 Filtro de Comissão</p>
+                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">Filtro de comissão</p>
                         <div class="filter-controls">
                             <div class="date-input-wrap"
                                 onclick="document.getElementById('m-data-inicio').showPicker()"><label>De</label><input
                                     type="date" id="m-data-inicio"></div>
                             <div class="date-input-wrap" onclick="document.getElementById('m-data-fim').showPicker()">
                                 <label>Até</label><input type="date" id="m-data-fim"></div>
-                            <button class="btn btn-primary btn-sm" onclick="filterMecDashboard()">🔍 Filtrar</button>
+                            <button class="btn btn-primary btn-sm" onclick="filterMecDashboard()">Filtrar</button>
                             <div class="divider hidden-mobile"></div>
-                            <button class="btn btn-secondary btn-sm" onclick="filterMecToday()">Ver Hoje</button>
+                            <button class="btn btn-secondary btn-sm" onclick="filterMecToday()">Hoje</button>
                             <button class="btn btn-ghost btn-sm" onclick="clearMecDashboardFilter()">Limpar</button>
                         </div>
                     </div>
@@ -453,7 +454,7 @@
                 <div class="page" id="page-catalogo">
                     <div class="catalogo-grid">
                         <div class="catalog-section">
-                            <div class="catalog-section-header"><span>🛠️ Serviços</span></div>
+                            <div class="catalog-section-header"><span>Serviços</span></div>
                             <div class="catalog-add-row"><input type="text" id="cat-servico-nome"
                                     style="text-transform: uppercase;" placeholder="Ex: Alinhamento..."
                                     onkeydown="if(event.key==='Enter') addCatalogItem('servicos')"><button
@@ -462,7 +463,7 @@
                             <div class="catalog-items-list" id="catalog-servicos-list"></div>
                         </div>
                         <div class="catalog-section">
-                            <div class="catalog-section-header"><span>⚙️ Peças</span></div>
+                            <div class="catalog-section-header"><span>Peças</span></div>
                             <div class="catalog-add-row"><input type="text" id="cat-peca-nome"
                                     style="text-transform: uppercase;" placeholder="Ex: Filtro..."
                                     onkeydown="if(event.key==='Enter') addCatalogItem('pecas')"><button
@@ -474,16 +475,16 @@
                 </div>
                 <div class="page" id="page-relatorios">
                     <div class="filter-bar">
-                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">📅 Fechamento de Comissões</p>
+                        <p style="color: var(--text-main); font-weight: bold; margin: 0;">Fechamento de comissões</p>
                         <div class="filter-controls">
                             <div class="date-input-wrap"
                                 onclick="document.getElementById('r-data-inicio').showPicker()"><label>De</label><input
                                     type="date" id="r-data-inicio"></div>
                             <div class="date-input-wrap" onclick="document.getElementById('r-data-fim').showPicker()">
                                 <label>Até</label><input type="date" id="r-data-fim"></div><button
-                                class="btn btn-primary btn-sm" onclick="filterRelatorios()">🔍 Filtrar</button>
+                                class="btn btn-primary btn-sm" onclick="filterRelatorios()">Filtrar</button>
                             <div class="divider hidden-mobile"></div><button class="btn btn-secondary btn-sm"
-                                onclick="filterRelatoriosToday()">Ver Hoje</button><button class="btn btn-ghost btn-sm"
+                                onclick="filterRelatoriosToday()">Hoje</button><button class="btn btn-ghost btn-sm"
                                 onclick="clearRelatoriosFilter()">Limpar</button>
                         </div>
                     </div>
@@ -511,9 +512,9 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem;">
                 <h2 id="mdoc-title" style="margin:0;">Documento</h2>
                 <div style="display:flex; gap:10px;">
-                    <button class="btn btn-secondary btn-sm" id="btn-print-doc" onclick="generatePDF()">🖨️ PDF</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-print-doc" onclick="generatePDF()"><span data-ico="imprimir"></span>PDF</button>
                     <button class="btn btn-success btn-sm" id="btn-convert-os" style="display:none;"
-                        onclick="convertOrcamentoToOS()">✅ Aprovar e Gerar OS</button>
+                        onclick="convertOrcamentoToOS()"><span data-ico="ok"></span>Aprovar e gerar OS</button>
                 </div>
             </div>
 
@@ -551,7 +552,7 @@
 
             <details class="entrada-box" id="entrada-box">
                 <summary class="entrada-summary">
-                    <span>📋 Checklist de entrada</span>
+                    <span>Checklist de entrada</span>
                     <span class="entrada-resumo" id="entrada-resumo">não preenchido</span>
                 </summary>
 
@@ -578,7 +579,7 @@
                             <input type="file" id="entrada-fotos-input" accept="image/*" capture="environment"
                                 multiple style="display:none;" onchange="adicionarFotos(event)">
                             <button type="button" class="btn btn-secondary"
-                                onclick="document.getElementById('entrada-fotos-input').click()">📷 Tirar / escolher foto</button>
+                                onclick="document.getElementById('entrada-fotos-input').click()"><span data-ico="foto"></span>Tirar / escolher foto</button>
                             <span class="fotos-dica">A foto datada é o que encerra discussão sobre avaria.</span>
                         </div>
                         <div class="fotos-grid" id="entrada-fotos"></div>
@@ -590,7 +591,7 @@
 
             <div class="etapa" data-etapa="2">
             <div class="checklist-section">
-                <div class="checklist-section-title">🛠️ Serviços</div>
+                <div class="checklist-section-title"><span data-ico="ferramenta" data-ico-tam="15"></span> Serviços</div>
                 <p class="checklist-hint">Toque para selecionar — ou digite para buscar no catálogo:</p>
                 <div class="quick-add-row">
                     <input type="text" id="quick-servico-nome" class="quick-add-input"
@@ -607,7 +608,7 @@
 
             <div class="etapa" data-etapa="3">
             <div class="checklist-section">
-                <div class="checklist-section-title">⚙️ Peças</div>
+                <div class="checklist-section-title"><span data-ico="peca" data-ico-tam="15"></span> Peças</div>
                 <p class="checklist-hint">Toque para selecionar — ou digite para buscar no catálogo:</p>
                 <div class="quick-add-row">
                     <input type="text" id="quick-peca-nome" class="quick-add-input"
@@ -664,11 +665,11 @@
                     <strong id="rodape-total">R$ 0,00</strong>
                 </div>
                 <div class="rodape-acoes">
-                    <button class="btn btn-ghost" id="btn-etapa-voltar" onclick="etapaAnterior()">← Voltar</button>
+                    <button class="btn btn-ghost" id="btn-etapa-voltar" onclick="etapaAnterior()"><span data-ico="voltar"></span>Voltar</button>
                     <button class="btn btn-secondary" id="btn-cancelar-doc"
                         onclick="document.getElementById('modal-doc').style.display='none'">Cancelar</button>
-                    <button class="btn btn-primary" id="btn-etapa-avancar" onclick="etapaProxima()">Avançar →</button>
-                    <button class="btn btn-primary" onclick="saveDoc()" id="btn-save-doc">💾 Gravar</button>
+                    <button class="btn btn-primary" id="btn-etapa-avancar" onclick="etapaProxima()">Avançar<span data-ico="avancar" style="margin:0 0 0 6px;"></span></button>
+                    <button class="btn btn-primary" onclick="saveDoc()" id="btn-save-doc"><span data-ico="salvar"></span>Gravar</button>
                 </div>
             </div>
         </div>
@@ -692,7 +693,7 @@
                     <p id="ficha-veiculo" style="margin:4px 0 0; color:var(--text-dim);"></p>
                 </div>
                 <button class="btn btn-ghost"
-                    onclick="document.getElementById('modal-ficha').style.display='none'">✕</button>
+                    onclick="document.getElementById('modal-ficha').style.display='none'"><span data-ico="fechar"></span></button>
             </div>
 
             <div class="ficha-dono">
@@ -749,7 +750,7 @@
             <div class="form-group"><label>% Comissão</label><input type="number" id="m-com"></div>
             <div class="form-group"><label>Senha de Acesso</label>
                 <div class="input-icon-wrap"><input type="password" id="m-senha" autocomplete="new-password"><button
-                        class="input-eye" type="button" onclick="togglePwd('m-senha',this)">👁</button></div>
+                        class="input-eye" type="button" onclick="togglePwd('m-senha',this)"><span data-ico="olho"></span></button></div>
                 <small id="mec-senha-dica"
                     style="display:block; margin-top:6px; color:var(--text-dim); font-size:12px;"></small>
             </div>
@@ -780,7 +781,7 @@
         </div>
 
         <div class="print-aviso" id="print-retorno" style="display:none;">
-            ↩️ <strong>RETORNO EM GARANTIA</strong> — refeito sem custo, referente à OS
+            <strong>RETORNO EM GARANTIA</strong> — refeito sem custo, referente à OS
             <span id="print-retorno-os">--</span>. <span id="print-retorno-motivo"></span>
         </div>
         <div class="print-section">

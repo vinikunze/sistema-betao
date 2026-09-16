@@ -7,6 +7,13 @@
 (function () {
     "use strict";
 
+    /* Entregue também é OS concluída. Sem isto, tudo que já saiu da oficina
+       sumia do faturamento desta seção, da comparação com o período anterior e
+       da lista de OS recentes. */
+    var concluida = (typeof window.osConcluida === "function")
+        ? window.osConcluida
+        : function (o) { return o && (o.status === "finalizada" || o.status === "entregue"); };
+
     var biChart = null;
     var money = (typeof window.fmt === "function")
         ? window.fmt
@@ -74,7 +81,7 @@
 
         var fin = db.os.filter(function (o) {
             var iso = isoDe(o);
-            return o.status === "finalizada" && iso >= per.ini && iso <= per.fim;
+            return concluida(o) && iso >= per.ini && iso <= per.fim;
         });
 
         var totServ = fin.reduce(function (a, o) { return a + (Number(o.maoObra) || 0); }, 0);
@@ -94,7 +101,7 @@
         var prevIni = pi.toISOString().split("T")[0], prevFim = pf.toISOString().split("T")[0];
         var fatPrev = db.os.filter(function (o) {
             var iso = isoDe(o);
-            return o.status === "finalizada" && iso >= prevIni && iso <= prevFim;
+            return concluida(o) && iso >= prevIni && iso <= prevFim;
         }).reduce(function (a, o) { return a + (Number(o.total) || 0); }, 0);
         var varFat = fatPrev > 0 ? ((fat - fatPrev) / fatPrev * 100) : (fat > 0 ? 100 : 0);
 
@@ -102,7 +109,7 @@
         var emAberto = db.os.filter(function (o) { return o.status === "aberta" || o.status === "em_andamento"; }).length;
         var orcPend = db.os.filter(function (o) { return o.status === "orcamento"; }).length;
         var rejeitados = db.os.filter(function (o) { return o.status === "rejeitado"; }).length;
-        var finalizados = db.os.filter(function (o) { return o.status === "finalizada"; }).length;
+        var finalizados = db.os.filter(concluida).length;
         var baseConv = finalizados + rejeitados;
         var conversao = baseConv > 0 ? (finalizados / baseConv * 100) : 0;
 
@@ -154,7 +161,7 @@
             leg.innerHTML = baseVendas > 0
                 ? '<div class="bi-leg-item"><span class="bi-dot" style="background:#e8a020"></span>Serviços <b>' + pctServ.toFixed(0) + '%</b> <small>' + money(totServ) + '</small></div>' +
                   '<div class="bi-leg-item"><span class="bi-dot" style="background:#3b82f6"></span>Peças <b>' + pctPec.toFixed(0) + '%</b> <small>' + money(totPec) + '</small></div>'
-                : '<div class="bi-empty">Sem vendas finalizadas no período.</div>';
+                : '<div class="bi-empty">Nenhuma OS concluída no período.</div>';
         }
 
         // ---------- MÉTRICAS de saúde ----------
@@ -185,7 +192,7 @@
         if (orcPend > 0) aten.push(orcPend + " orçamento(s) pendente(s) — faça follow-up com o cliente.");
         if (emAberto > 0) aten.push(emAberto + " OS em aberto — finalize para faturar.");
         if (!bom.length) bom.push("Ainda sem dados suficientes neste período. Finalize OS para gerar análises.");
-        if (!aten.length) aten.push("Nada crítico por aqui. Operação em dia. 👍");
+        if (!aten.length) aten.push("Nada crítico no período.");
 
         fillList("bi-good-list", bom);
         fillList("bi-warn-list", aten);
@@ -207,9 +214,9 @@
         if (!window.db || !Array.isArray(db.os)) return;
         var tb = document.getElementById("d-tbody");
         if (!tb) return;
-        var ordem = { "aberta": 0, "em_andamento": 1, "finalizada": 2 };
+        var ordem = { "aberta": 0, "em_andamento": 1, "finalizada": 2, "entregue": 3 };
         var oper = db.os.filter(function (o) {
-            return o.status === "aberta" || o.status === "em_andamento" || o.status === "finalizada";
+            return o.status === "aberta" || o.status === "em_andamento" || concluida(o);
         });
         oper.sort(function (a, b) {
             var sa = ordem[a.status], sb = ordem[b.status];
@@ -217,11 +224,20 @@
             return Number(b.id) - Number(a.id);     // mais recentes primeiro
         });
         var top = oper.slice(0, 10);
+        /* Esta tabela e a do script.js escrevem no mesmo #d-tbody, e esta é a que
+           roda por último. Enquanto ela saía cedo por não achar window.db, quem
+           aparecia era a outra — a que mostra pagamento e retorno. Agora que as
+           duas rodam, esta precisa mostrar o mesmo, senão o painel perdia a
+           informação de quem está devendo e de qual carro voltou na garantia. */
         var badge = (typeof getStatusBadge === "function") ? getStatusBadge : function (s) { return s; };
+        var badgePg = (typeof getPagamentoBadge === "function") ? getPagamentoBadge : function () { return ""; };
+        var badgeRet = (typeof getRetornoBadge === "function") ? getRetornoBadge : function () { return ""; };
         tb.innerHTML = top.length
             ? top.map(function (o) {
+                var etiquetas = badge(o.status) +
+                    (concluida(o) ? " " + badgePg(o) : "") + badgeRet(o);
                 return '<tr><td>#' + o.id + '</td><td>' + (o.veiculo || "—") + '</td><td>' +
-                    money(o.total) + '</td><td>' + badge(o.status) + '</td></tr>';
+                    money(o.total) + '</td><td class="td-etiquetas">' + etiquetas + '</td></tr>';
             }).join("")
             : '<tr><td colspan="4" style="text-align:center;color:var(--text-dim);">Nenhuma OS cadastrada ainda.</td></tr>';
     }

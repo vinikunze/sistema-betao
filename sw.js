@@ -1,4 +1,4 @@
-const CACHE_NAME = 'betao-app-v9';
+const CACHE_NAME = 'betao-app-v10';
 
 self.addEventListener('install', event => {
     self.skipWaiting(); // Força a atualização imediata do cache

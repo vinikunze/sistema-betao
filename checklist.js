@@ -46,7 +46,7 @@
             var on = !!marcados[nome];
             return '<button type="button" class="item-btn' + (on ? ' ativo' : '') +
                 '" onclick="toggleItemEntrada(\'' + nome + '\')">' +
-                '<span class="item-check">' + (on ? '✓' : '') + '</span>' + nome + '</button>';
+                '<span class="item-check">' + (on ? ico('ok', 13) : '') + '</span>' + nome + '</button>';
         }).join('');
     }
 
@@ -57,7 +57,7 @@
         el.innerHTML = fotos.map(function (f, i) {
             return '<div class="foto-item">' +
                 '<img src="' + (f.url || '') + '" alt="Foto ' + (i + 1) + '">' +
-                '<button type="button" class="foto-remover" onclick="removerFoto(' + i + ')">✕</button>' +
+                '<button type="button" class="foto-remover" onclick="removerFoto(' + i + ')" title="Remover foto">' + ico('fechar', 14) + '</button>' +
                 '</div>';
         }).join('');
     }
@@ -68,7 +68,7 @@
         var c = estado();
         var qtdItens = Object.keys(c.itens || {}).filter(function (k) { return c.itens[k]; }).length;
         var partes = [];
-        if (c.combustivel) partes.push('⛽ ' + c.combustivel);
+        if (c.combustivel) partes.push('Combustível: ' + c.combustivel);
         if (qtdItens) partes.push(qtdItens + (qtdItens === 1 ? ' item' : ' itens'));
         if ((c.avarias || '').trim()) partes.push('avarias anotadas');
         if ((stateOS.fotos || []).length) partes.push((stateOS.fotos.length) + ' foto' + (stateOS.fotos.length === 1 ? '' : 's'));
