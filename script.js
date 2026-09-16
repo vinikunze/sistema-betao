@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.7-limpeza-e-navegacao';
+const APP_VERSION = '2026-09-16.8-entrada-com-conta';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -169,29 +169,102 @@ function switchTab(mode) {
     else { document.getElementById('tab-reg').classList.add('active'); document.getElementById('form-login').classList.add('hidden'); document.getElementById('form-register').classList.remove('hidden'); }
 }
 
+/* =========================================
+   ENTRADA NO SISTEMA
+   Antes: o navegador chamava login_socio/login_mecanico, o banco conferia a
+   senha e devolvia id e nome. Funcionava, mas a permissão de LER e ESCREVER
+   não vinha daí — vinha da chave anon embutida no site, que é pública. Ou
+   seja: qualquer pessoa com o endereço do sistema, sem senha nenhuma, lia e
+   escrevia tudo. Entrar era teatro; quem abria as tabelas era a chave.
+
+   Agora quem entra recebe uma sessão de verdade do Supabase Auth, e é o
+   crachá dessa sessão que as regras do banco conferem em cada consulta. Sem
+   entrar, não se lê uma linha.
+
+   O mecânico continua digitando só o nome. O endereço de e-mail que o Supabase
+   exige é montado aqui a partir do nome, igual ao que a migração gravou.
+========================================= */
+const DOMINIO_MECANICO = '@mecanico.betaoautocenter.com.br';
+
+/* Mesma regra da migração: sem acento, sem espaço, minúsculo. Se os dois lados
+   discordarem, o mecânico não entra — por isso está num lugar só. */
+function emailDoMecanico(nome) {
+    const semAcento = String(nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return semAcento.replace(/[^A-Za-z0-9]/g, '').toLowerCase() + DOMINIO_MECANICO;
+}
+
+/* Descobre quem é a pessoa logada: sócio ou mecânico, e qual linha de
+   socios/mecanicos é ela. Vem do banco, não do navegador — se viesse daqui,
+   bastaria editar o localStorage para virar sócio. */
+async function carregarPerfil() {
+    const { data, error } = await supabaseClient
+        .from('perfis_betao')
+        .select('papel, ref_id')
+        .maybeSingle();
+    if (error || !data) return null;
+
+    const tabela = data.papel === 'socio' ? 'socios' : 'mecanicos';
+    const { data: pessoa } = await supabaseClient.from(tabela).select('id, nome').eq('id', data.ref_id).maybeSingle();
+    return { id: data.ref_id, nome: (pessoa && pessoa.nome) || 'Usuário', role: data.papel };
+}
+
 async function doLogin() {
-    const userInp = document.getElementById('l-email').value.trim(); const senhaInp = document.getElementById('l-senha').value; const lembrar = document.getElementById('l-lembrar').checked;
-    /* A conferência da senha acontece DENTRO do banco. O navegador manda usuário
-       e senha e recebe de volta só o id e o nome — o hash nunca sai de lá.
-       Antes esta tela baixava a tabela de sócios inteira, com as senhas em
-       texto puro, antes mesmo de alguém digitar qualquer coisa. */
+    const userInp = document.getElementById('l-email').value.trim();
+    const senhaInp = document.getElementById('l-senha').value;
+    const lembrar = document.getElementById('l-lembrar').checked;
     if (!userInp || !senhaInp) return toast("Preencha usuário e senha!", true);
 
-    if (loginMode === 'login') {
-        const { data, error } = await supabaseClient.rpc('login_socio', { p_user: userInp, p_senha: senhaInp });
-        if (error) { console.error("Login sócio:", error); return toast("Erro de conexão: " + mensagemErro(error), true); }
-        const u = (data || [])[0];
-        if (!u) return toast("Sócio não encontrado ou senha incorreta!", true);
-        session = { id: u.id, nome: u.nome, role: 'socio' };
-    } else if (loginMode === 'mecanico') {
-        const { data, error } = await supabaseClient.rpc('login_mecanico', { p_nome: userInp, p_senha: senhaInp });
-        if (error) { console.error("Login mecânico:", error); return toast("Erro de conexão: " + mensagemErro(error), true); }
-        const m = (data || [])[0];
-        if (!m) return toast("Mecânico não encontrado ou senha incorreta!", true);
-        session = { id: m.id, nome: m.nome, role: 'mecanico' };
+    const btn = document.getElementById('btn-login');
+    if (btn) { btn.disabled = true; btn.textContent = 'Entrando...'; }
+    const soltar = () => { if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; } };
+
+    const email = loginMode === 'mecanico' ? emailDoMecanico(userInp) : userInp.toLowerCase();
+
+    try {
+        let { error } = await supabaseClient.auth.signInWithPassword({ email, password: senhaInp });
+
+        /* Rede de segurança da virada: as senhas antigas foram copiadas para o
+           Supabase Auth, e a conta pode ter ficado sem a cópia. Se a senha
+           bater no cadastro antigo, o banco regrava e tentamos de novo — uma
+           vez só. Some junto com o acesso anônimo. */
+        if (error) {
+            const { data: reparou } = await supabaseClient.rpc('betao_reparar_senha', {
+                p_login: userInp, p_senha: senhaInp
+            });
+            if (reparou) ({ error } = await supabaseClient.auth.signInWithPassword({ email, password: senhaInp }));
+        }
+
+        if (error) { soltar(); return toast("Usuário ou senha incorretos.", true); }
+
+        const perfil = await carregarPerfil();
+        if (!perfil) {
+            await supabaseClient.auth.signOut();
+            soltar();
+            return toast("Esta conta não está ligada à oficina. Fale com o proprietário.", true);
+        }
+        if (loginMode === 'mecanico' && perfil.role !== 'mecanico') {
+            await supabaseClient.auth.signOut(); soltar();
+            return toast("Esta conta não é de mecânico. Use a aba Sócio.", true);
+        }
+        if (loginMode === 'login' && perfil.role !== 'socio') {
+            await supabaseClient.auth.signOut(); soltar();
+            return toast("Esta conta é de mecânico. Use a aba Mecânico.", true);
+        }
+
+        session = perfil;
+        /* Só lembrete de quem é, para a tela montar antes do banco responder.
+           Quem manda é a sessão do Supabase: mexer aqui não dá acesso a nada. */
+        if (lembrar) localStorage.setItem(CONFIG.SESSION_KEY, JSON.stringify(session));
+        else sessionStorage.setItem(CONFIG.SESSION_KEY, JSON.stringify(session));
+
+        soltar();
+        await carregarDados();
+        initApp();
+    } catch (e) {
+        console.error('Login:', e);
+        soltar();
+        toast("Erro de conexão: " + mensagemErro(e), true);
     }
-    if (lembrar) localStorage.setItem(CONFIG.SESSION_KEY, JSON.stringify(session)); else sessionStorage.setItem(CONFIG.SESSION_KEY, JSON.stringify(session));
-    initApp();
 }
 
 async function doRegister() {
@@ -1531,7 +1604,13 @@ function configurarCliquesNav() {
     });
 }
 
-function doLogout() { localStorage.clear(); sessionStorage.clear(); location.reload(); }
+/* Encerra a sessão NO SUPABASE também. Antes só limpava o navegador: o crachá
+   continuava valendo, e num tablet compartilhado pelos mecânicos isso é o que
+   separa "saí" de "só escondi a tela". */
+async function doLogout() {
+    try { if (supabaseClient) await supabaseClient.auth.signOut(); } catch (e) { console.error(e); }
+    localStorage.clear(); sessionStorage.clear(); location.reload();
+}
 function toggleMenu() { const nav = document.getElementById('main-nav'); if (!nav) return; nav.classList.toggle('open'); const overlay = document.getElementById('mobile-menu-overlay'); if (overlay) overlay.style.display = nav.classList.contains('open') ? 'block' : 'none'; }
 function togglePwd(id, btn) { const i = document.getElementById(id); i.type = i.type === 'password' ? 'text' : 'password'; btn.innerHTML = ico(i.type === 'password' ? 'olho' : 'olhoFechado'); }
 
@@ -1558,8 +1637,25 @@ window.getStatusBadge = getStatusBadge;
 window.getPagamentoBadge = getPagamentoBadge;
 window.getRetornoBadge = getRetornoBadge;
 
-document.addEventListener('DOMContentLoaded', () => {
-    carregarDados();
-    const s = localStorage.getItem(CONFIG.SESSION_KEY) || sessionStorage.getItem(CONFIG.SESSION_KEY);
-    if (s) { session = JSON.parse(s); initApp(); }
+/* Quem decide se a pessoa continua entrada é o Supabase, não o localStorage.
+   Antes bastava ter a chave `betao_sess` gravada para a tela abrir — e como
+   era o navegador que guardava o papel, dava para trocar "mecanico" por
+   "socio" na mão e ver o faturamento inteiro. Agora o papel vem do banco a
+   cada abertura, e sem sessão válida a tela volta para o login. */
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!supabaseClient) return;
+
+    const { data: { session: sessaoSupabase } } = await supabaseClient.auth.getSession();
+    if (!sessaoSupabase) {
+        localStorage.removeItem(CONFIG.SESSION_KEY);
+        sessionStorage.removeItem(CONFIG.SESSION_KEY);
+        return;
+    }
+
+    const perfil = await carregarPerfil();
+    if (!perfil) { await supabaseClient.auth.signOut(); return; }
+
+    session = perfil;
+    await carregarDados();
+    initApp();
 });
