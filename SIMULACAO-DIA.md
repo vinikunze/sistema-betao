@@ -156,19 +156,25 @@ continua contando o retrabalho.
 ### A senha `Podre123.`
 
 Ela ficou legível por qualquer um que tivesse o endereço do sistema, antes da
-correção de segurança. Precisa ser trocada.
+correção de segurança. **Continua sendo o único item aberto.** A tela de trocar
+senha já está no ar — botão de chave no cabeçalho.
 
-### Segurança, etapa 2
+### ~~Segurança, etapa 2~~ — aplicada em 16/09
 
-As tabelas de OS, mecânicos e catálogo ainda podem ser lidas por quem tiver o
-endereço do sistema. A correção é usar o login do próprio Supabase com
-permissão por usuário. Está documentado no README como pendente.
+As sete tabelas da oficina, mais o balde de fotos, estavam com uma política
+`ALL to anon using (true)`: quem tivesse o endereço do site lia e escrevia
+tudo, sem senha nenhuma. Agora cada consulta vale pelo crachá de quem está
+logado. Conferido com a chave anon depois de aplicar: zero linha em `os`,
+`clientes`, `veiculos`, `mecanicos`, no catálogo e nas fotos.
 
 ---
 
 ## O que o teste cobre agora
 
-129 casos automáticos, todos passando, em 11 baterias: busca, mais usados,
-colisão de número de OS, pagamentos, cobranças, login, veículos, garantia,
-etapas do formulário, PDF e **valores em reais** (bateria nova, criada por
-causa dos erros 2, 4 e 5 deste relatório).
+173 casos automáticos, todos passando, em 13 baterias: busca, mais usados,
+colisão de número de OS, pagamentos, cobranças, entrada no sistema, veículos,
+garantia, etapas do formulário, PDF, **valores em reais** (bateria criada por
+causa dos erros 2, 4 e 5 deste relatório), o **quadro no toque** e a
+**navegação pelo menu** — esta última criada depois de eu quebrar o menu no
+tablet e no celular sem nenhum dos 151 casos de então perceber: todos eles
+trocavam de tela por JavaScript, nenhum clicava no menu como uma pessoa faz.

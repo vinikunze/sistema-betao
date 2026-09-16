@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.11-icone-chave';
+const APP_VERSION = '2026-09-16.12-acesso-fechado';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -221,18 +221,13 @@ async function doLogin() {
     const email = loginMode === 'mecanico' ? emailDoMecanico(userInp) : userInp.toLowerCase();
 
     try {
-        let { error } = await supabaseClient.auth.signInWithPassword({ email, password: senhaInp });
-
-        /* Rede de segurança da virada: as senhas antigas foram copiadas para o
-           Supabase Auth, e a conta pode ter ficado sem a cópia. Se a senha
-           bater no cadastro antigo, o banco regrava e tentamos de novo — uma
-           vez só. Some junto com o acesso anônimo. */
-        if (error) {
-            const { data: reparou } = await supabaseClient.rpc('betao_reparar_senha', {
-                p_login: userInp, p_senha: senhaInp
-            });
-            if (reparou) ({ error } = await supabaseClient.auth.signInWithPassword({ email, password: senhaInp }));
-        }
+        /* Existia aqui uma rede de segurança da virada (`betao_reparar_senha`):
+           se a senha batesse no cadastro antigo, o banco regravava no formato
+           do Supabase e o login era tentado de novo. As sete contas já foram
+           convertidas e as duas pessoas entraram, então a função saiu do banco
+           junto com o acesso anônimo — e ela precisava sair: conferia senha sem
+           exigir login, que é exatamente a porta que a etapa 2 fecha. */
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password: senhaInp });
 
         if (error) { soltar(); return toast("Usuário ou senha incorretos.", true); }
 
