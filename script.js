@@ -164,8 +164,8 @@ function switchTab(mode) {
     loginMode = mode; document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('form-login').classList.remove('hidden'); document.getElementById('form-register').classList.add('hidden');
     const labelEmail = document.getElementById('label-email'); const inputEmail = document.getElementById('l-email');
-    if (mode === 'login') { document.getElementById('tab-login').classList.add('active'); document.getElementById('login-title').textContent = "Acesso Proprietário"; labelEmail.textContent = "E-mail do Sócio"; inputEmail.placeholder = "seu@email.com"; inputEmail.value = ""; }
-    else if (mode === 'mecanico') { document.getElementById('tab-mec').classList.add('active'); document.getElementById('login-title').textContent = "Painel do Colaborador"; labelEmail.textContent = "Nome do Mecânico"; inputEmail.placeholder = "Ex: Patrik..."; inputEmail.value = ""; }
+    if (mode === 'login') { document.getElementById('tab-login').classList.add('active'); document.getElementById('login-title').textContent = "Acesso do sócio"; labelEmail.textContent = "E-mail do Sócio"; inputEmail.placeholder = "seu@email.com"; inputEmail.value = ""; }
+    else if (mode === 'mecanico') { document.getElementById('tab-mec').classList.add('active'); document.getElementById('login-title').textContent = "Acesso do mecânico"; labelEmail.textContent = "Nome do Mecânico"; inputEmail.placeholder = "Ex: Patrik..."; inputEmail.value = ""; }
     else { document.getElementById('tab-reg').classList.add('active'); document.getElementById('form-login').classList.add('hidden'); document.getElementById('form-register').classList.remove('hidden'); }
 }
 
