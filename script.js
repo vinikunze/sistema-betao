@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-15.8-clientes-veiculos';
+const APP_VERSION = '2026-09-16.1-checklist-garantia';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -57,7 +57,7 @@ const aReceberDaOS = (o) => Math.max(0, (Number(o.total) || 0) - (Number(o.valor
 const osNaCarteira = (o) => osConcluida(o) && o.pagamento !== 'pago' && aReceberDaOS(o) > 0;
 let db = { os: [], mecanicos: [], clientes: [], veiculos: [], catalogo_pecas: [], catalogo_servicos: [] };
 let session = null; let loginMode = 'login';
-let stateOS = { editId: null, type: 'os', servicos: [], pecas: [], fotoBase64: null };
+let stateOS = { editId: null, type: 'os', servicos: [], pecas: [], checklist: null, fotos: [] };
 
 let faturamentoChartInstance = null; let ticketChartInstance = null;
 
@@ -269,6 +269,7 @@ function buscarPlaca(placaInput) {
         if (dono) set('d-cliente', dono.nome);
         const qtd = osDoVeiculo(v.id, placa).length;
         toast(qtd ? `🚗 ${v.marca} ${v.modelo} · ${qtd} ${qtd === 1 ? 'serviço' : 'serviços'} no histórico` : '🚗 Veículo encontrado!');
+        mostrarAlertaGarantia(v.id, placa);
         return;
     }
 
@@ -314,6 +315,18 @@ function renderDashboard() {
 
         const pFat = prevList.reduce((a, o) => a + (Number(o.total) || 0), 0); const pLucro = prevList.reduce((a, o) => a + (Number(o.lucro) || 0), 0); const pCom = prevList.reduce((a, o) => a + (Number(o.comissao) || 0), 0); const pTicket = prevList.length > 0 ? (pFat / prevList.length) : 0;
 
+        /* Taxa de retorno: quanto do que saiu voltou por causa do nosso serviço.
+           É o indicador de retrabalho — cada retorno custa peça, mão de obra e
+           comissão de novo, e some do lucro sem aparecer em lugar nenhum. */
+        const retornos = currList.filter(o => o.retorno_de_os);
+        const taxaRetorno = currList.length ? (retornos.length / currList.length) * 100 : 0;
+        const elTaxa = document.getElementById('d-retorno-taxa');
+        if (elTaxa) elTaxa.textContent = taxaRetorno.toFixed(taxaRetorno % 1 === 0 ? 0 : 1) + '%';
+        const elTaxaInfo = document.getElementById('d-retorno-info');
+        if (elTaxaInfo) elTaxaInfo.textContent = retornos.length
+            ? retornos.length + (retornos.length === 1 ? ' retorno em ' : ' retornos em ') + currList.length + ' OS'
+            : (currList.length ? 'Nenhum retorno' : '--');
+
         /* A receber é a carteira INTEIRA, não só a do período filtrado: dívida
            antiga continua sendo dívida, e é isso que se quer saber ao olhar. */
         const carteira = db.os.filter(osNaCarteira);
@@ -333,7 +346,7 @@ function renderDashboard() {
         if (document.getElementById('d-ticket-trend')) document.getElementById('d-ticket-trend').innerHTML = getTrendHTML(ticketMedio, pTicket);
 
         if (document.getElementById('d-tbody')) {
-            document.getElementById('d-tbody').innerHTML = currList.sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 8).map(o => `<tr><td>#${o.id}</td><td>${o.veiculo}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;">Nenhuma OS finalizada no período.</td></tr>';
+            document.getElementById('d-tbody').innerHTML = currList.sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 8).map(o => `<tr><td>#${o.id}</td><td>${o.veiculo}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}${getRetornoBadge(o)}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;">Nenhuma OS finalizada no período.</td></tr>';
         }
 
         try {
@@ -367,6 +380,14 @@ function renderTicketChart(labels, ticket) {
 /* =========================================
    6. ORÇAMENTOS E KANBAN DE OS
 ========================================= */
+/* Etiqueta separada: retorno não é um status nem um pagamento, é a marca de
+   que este serviço foi refeito sem cobrar de novo. */
+function getRetornoBadge(o) {
+    if (!o || !o.retorno_de_os) return '';
+    const titulo = o.retorno_motivo ? ` title="${String(o.retorno_motivo).replace(/"/g, '&quot;')}"` : '';
+    return `<span${titulo} style="color:var(--gold); font-weight:bold; background:rgba(232,160,32,0.12); padding:4px 8px; border-radius:4px; font-size:11px; white-space:nowrap;">↩️ RETORNO OS #${o.retorno_de_os}</span>`;
+}
+
 function getStatusBadge(s) {
     if (!s) s = 'aberta';
     const upper = s.toUpperCase();
@@ -395,7 +416,7 @@ function renderOrcamentos() {
     const el = document.getElementById('orc-tbody'); if (!el) return;
     // O Orçamento agora mora dentro da tabela OS
     const orcs = db.os.filter(o => o.status === 'orcamento' || o.status === 'rejeitado');
-    el.innerHTML = orcs.sort((a, b) => Number(b.id) - Number(a.id)).map(o => `<tr><td>#${o.id}</td><td>${o.data}</td><td>${o.veiculo}</td><td>${o.cliente}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}</td><td><button class="btn btn-secondary btn-sm" onclick="openDocModal('orcamento','${o.id}')">✏️ Abrir</button></td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;">Nenhum Orçamento.</td></tr>';
+    el.innerHTML = orcs.sort((a, b) => Number(b.id) - Number(a.id)).map(o => `<tr><td>#${o.id}</td><td>${o.data}</td><td>${o.veiculo}</td><td>${o.cliente}</td><td>${fmt(o.total)}</td><td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}${getRetornoBadge(o)}</td><td><button class="btn btn-secondary btn-sm" onclick="openDocModal('orcamento','${o.id}')">✏️ Abrir</button></td></tr>`).join('') || '<tr><td colspan="7" style="text-align:center;">Nenhum Orçamento.</td></tr>';
 }
 
 function renderOSKanban() {
@@ -510,8 +531,12 @@ function openDocModal(type, editId = null) {
 
     montarSelectsPagamento();
 
+    stateOS.checklist = { combustivel: '', itens: {}, avarias: '' };
+    stateOS.fotos = [];
+
     if (editId) {
         const doc = db.os.find(x => x.id == editId);
+        stateOS.checklist = Object.assign({ combustivel: '', itens: {}, avarias: '' }, doc.checklist || {});
         ['cliente', 'veiculo', 'modelo', 'placa', 'km', 'motor', 'status'].forEach(f => { const el = document.getElementById('d-' + f); if (el) el.value = doc[f] || ''; });
         if (document.getElementById('d-pagamento')) document.getElementById('d-pagamento').value = doc.pagamento || 'nao_pago';
         if (document.getElementById('d-forma-pagamento')) document.getElementById('d-forma-pagamento').value = doc.forma_pagamento || '';
@@ -526,6 +551,27 @@ function openDocModal(type, editId = null) {
         stateOS.servicos = []; stateOS.pecas = []; stateOS.fotoBase64 = null;
         if (document.getElementById('d-foto-preview')) document.getElementById('d-foto-preview').style.display = 'none';
     }
+    if (typeof renderChecklistEntrada === 'function') renderChecklistEntrada();
+    if (typeof carregarFotosDaOS === 'function' && editId) carregarFotosDaOS(editId);
+
+    // Alerta de garantia: só faz sentido em OS, e depende de saber qual carro é.
+    const retornoChk = document.getElementById('d-retorno');
+    if (retornoChk) { retornoChk.checked = false; aoMarcarRetorno(); }
+    const motivo = document.getElementById('d-retorno-motivo');
+    if (motivo) motivo.value = '';
+    const alerta = document.getElementById('alerta-garantia');
+    if (alerta) { alerta.style.display = 'none'; }
+    const linhaRet = document.getElementById('retorno-row');
+    if (linhaRet) linhaRet.style.display = 'none';
+    if (editId) {
+        const doc = db.os.find(x => x.id == editId);
+        if (doc && doc.retorno_de_os && retornoChk) {
+            retornoChk.checked = true;
+            if (motivo) motivo.value = doc.retorno_motivo || '';
+        }
+        if (doc) mostrarAlertaGarantia(doc.veiculo_id, doc.placa);
+    }
+
     renderChecklistServicos(); renderChecklistPecas(); updateTotals();
     if (document.getElementById('modal-doc')) document.getElementById('modal-doc').style.display = 'flex';
 }
@@ -541,6 +587,81 @@ function termoBusca(tipo) {
 }
 
 function filtrarChecklist(tipo) { if (tipo === 'pecas') renderChecklistPecas(); else renderChecklistServicos(); }
+
+/* =========================================
+   GARANTIA E RETORNO
+   Retrabalho custa peça, mão de obra e comissão. Isso só é possível agora
+   porque o sistema reconhece que duas OS são do mesmo carro.
+========================================= */
+const GARANTIA_PADRAO_DIAS = 90;
+
+const garantiaDoServico = (catalogoId) => {
+    const c = db.catalogo_servicos.find(x => x.id === catalogoId);
+    return c && c.garantia_dias != null ? Number(c.garantia_dias) : GARANTIA_PADRAO_DIAS;
+};
+
+const diasDesde = (o) => {
+    const iso = o.dataISO || parseBRDateToISO(o.data);
+    if (!iso) return Infinity;
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d)) return Infinity;
+    return Math.floor((Date.now() - d.getTime()) / 86400000);
+};
+
+/* Serviços ainda dentro do prazo num carro. Só olha OS concluída: garantia
+   começa a contar quando o serviço ficou pronto, não quando o carro entrou. */
+function servicosEmGarantia(veiculoId, placa, ignorarOsId) {
+    const achados = [];
+    osDoVeiculo(veiculoId, placa).forEach(o => {
+        if (!osConcluida(o) || String(o.id) === String(ignorarOsId)) return;
+        const dias = diasDesde(o);
+        (o.servicos || []).forEach(sv => {
+            const prazo = garantiaDoServico(sv.catalogoId);
+            if (prazo > 0 && dias <= prazo) {
+                achados.push({ osId: o.id, descricao: sv.descricao, dias, prazo, restam: prazo - dias });
+            }
+        });
+    });
+    return achados.sort((a, b) => a.restam - b.restam);
+}
+
+function mostrarAlertaGarantia(veiculoId, placa) {
+    const el = document.getElementById('alerta-garantia');
+    const linha = document.getElementById('retorno-row');
+    if (!el) return;
+
+    const emGarantia = servicosEmGarantia(veiculoId, placa, stateOS.editId);
+    if (!emGarantia.length) {
+        el.style.display = 'none'; el.innerHTML = '';
+        if (linha) linha.style.display = 'none';
+        return;
+    }
+
+    el.style.display = 'block';
+    el.innerHTML = '<strong>⚠️ Este carro tem serviço em garantia</strong>' +
+        '<ul>' + emGarantia.slice(0, 4).map(g =>
+            `<li>${g.descricao} — feito há ${g.dias} ${g.dias === 1 ? 'dia' : 'dias'} (OS #${g.osId}, garantia de ${g.prazo} dias, restam ${g.restam})</li>`
+        ).join('') + '</ul>' +
+        '<span class="alerta-rodape">Se o carro voltou por causa disso, marque como retorno em garantia abaixo.</span>';
+
+    if (linha) {
+        linha.style.display = 'grid';
+        const sel = document.getElementById('d-retorno-os');
+        if (sel) {
+            const vistas = [];
+            emGarantia.forEach(g => { if (!vistas.some(v => v.osId === g.osId)) vistas.push(g); });
+            sel.innerHTML = vistas.map(g => `<option value="${g.osId}">OS #${g.osId} · ${g.descricao}</option>`).join('');
+        }
+    }
+}
+
+function aoMarcarRetorno() {
+    const marcado = (document.getElementById('d-retorno') || {}).checked;
+    ['d-retorno-os', 'd-retorno-motivo'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !marcado;
+    });
+}
 
 /* =========================================
    CLIENTES E VEÍCULOS
@@ -763,13 +884,21 @@ async function saveDoc() {
             { placa: placaU, marca: veiculoU, modelo: modeloU, motor: motorU, km: document.getElementById('d-km').value },
             clienteId);
 
-        const data = { id, cliente_id: clienteId, veiculo_id: veiculoId, cliente: clienteU, veiculo: veiculoU, modelo: modeloU, placa: placaU, km: document.getElementById('d-km').value, motor: motorU, status: statusDoc, servicos: stateOS.servicos, pecas: stateOS.pecas, maoObra: tMO, custoPecas: cP, receitaPecas: rP, total: tot, lucro: tot - tCom - cP, comissao: tCom, data: dataRegistro, dataISO: dataISORegistro, pagamento: situacao, forma_pagamento: formaPg, valor_pago: pago };
+        const ehRetorno = (document.getElementById('d-retorno') || {}).checked || false;
+        const retornoDeOs = ehRetorno ? ((document.getElementById('d-retorno-os') || {}).value || null) : null;
+        const retornoMotivo = ehRetorno ? ((document.getElementById('d-retorno-motivo') || {}).value || '').trim() : '';
+
+        const data = { checklist: stateOS.checklist || {}, retorno_de_os: retornoDeOs, retorno_motivo: retornoMotivo, id, cliente_id: clienteId, veiculo_id: veiculoId, cliente: clienteU, veiculo: veiculoU, modelo: modeloU, placa: placaU, km: document.getElementById('d-km').value, motor: motorU, status: statusDoc, servicos: stateOS.servicos, pecas: stateOS.pecas, maoObra: tMO, custoPecas: cP, receitaPecas: rP, total: tot, lucro: tot - tCom - cP, comissao: tCom, data: dataRegistro, dataISO: dataISORegistro, pagamento: situacao, forma_pagamento: formaPg, valor_pago: pago };
 
         // TUDO VAI PARA A TABELA OS AGORA
         const erroGravar = stateOS.editId
             ? (await supabaseClient.from('os').update(data).eq('id', id)).error
             : await inserirNovoDoc(data);
         if (erroGravar) { console.error("Erro banco:", erroGravar); return toast("Erro ao gravar: " + mensagemErro(erroGravar), true); }
+
+        // As fotos já estão no Storage; aqui só se amarra elas à OS, que só
+        // agora tem número definitivo.
+        if (typeof salvarFotosDaOS === 'function') await salvarFotosDaOS(data.id);
 
         if (document.getElementById('modal-doc')) document.getElementById('modal-doc').style.display = 'none';
         await carregarDados();
@@ -1081,7 +1210,7 @@ function abrirFicha(veiculoId) {
         <td>${o.km || '--'}</td>
         <td style="max-width:280px;">${(o.servicos || []).map(sv => sv.descricao).join(', ') || '--'}</td>
         <td>${fmt(o.total)}</td>
-        <td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}</td>
+        <td>${getStatusBadge(o.status)}${osConcluida(o) ? ' ' + getPagamentoBadge(o) : ''}${getRetornoBadge(o)}</td>
         <td><button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-ficha').style.display='none'; openDocModal('os','${o.id}')">✏️</button></td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center; color:var(--text-dim);">Nenhum serviço registrado neste veículo.</td></tr>';
 
