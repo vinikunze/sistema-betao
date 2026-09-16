@@ -1896,23 +1896,69 @@ td {
 }
 
 /* =========================================
-   CABEÇALHO APERTADO
-   Com o botão de trocar senha, oito itens de menu + dois botões + bloco do
-   usuário passaram de 1440px por 138px, e "Relatórios" saía da tela. O menu
-   rola (a bateria e2e-navegacao garante que toda página continua alcançável),
-   mas item cortado parece defeito.
-   O que sai primeiro é decoração: o nome e o cargo ao lado do avatar, que já
-   identifica quem está logado. Volta assim que houver largura.
+   CABEÇALHO EM DUAS LINHAS NO NOTEBOOK
+
+   As contas, medidas na tela: o menu precisa de 787px para os oito itens, o
+   logotipo ocupa 173 e o lado direito (dois botões + usuário) 394. Com as
+   folgas, uma linha só exige ~1400px. Abaixo disso não existe ajuste de
+   espaçamento que resolva — eu já tinha tentado, apertando a folga dos itens e
+   escondendo o nome do usuário, e num notebook de 1366px "Relatórios" continuou
+   fora da tela. Em 1280 sumiam dois itens; em 1100, quatro.
+
+   A barra rola de lado, então tecnicamente nada ficava inalcançável — mas
+   rolagem horizontal com mouse quase ninguém descobre, e item cortado parece
+   defeito. Foi o que o Vinicius viu: "não consigo mexer nessa parte".
+
+   Então, entre 1025 e 1400, o menu desce para uma linha só dele, com a largura
+   inteira da janela. O cabeçalho ganha uns 44px de altura e todas as oito telas
+   voltam a ficar a um clique. Não vira gaveta: gaveta custa dois toques, e isso
+   já incomoda no tablet.
+
+   O corte é 1500 e não 1400, que é o mínimo aritmético: entre 1401 e 1500 até
+   cabe em uma linha, mas só espremendo a folga dos itens e escondendo o nome do
+   usuário. Cabe e fica feio. Duas linhas com folga é melhor do que uma linha
+   apertada.
+
+   Acima de 1500 continua tudo em uma linha; abaixo de 1025 o menu já é gaveta,
+   que é o certo no celular.
 ========================================= */
-@media (max-width: 1600px) {
+@media (min-width: 1025px) and (max-width: 1499px) {
+    .top-header {
+        flex-wrap: wrap;
+        height: auto;
+        padding-top: 0.75rem;
+    }
+
+    .top-header-left {
+        order: 1;
+    }
+
+    .top-header-right {
+        order: 2;
+    }
+
+    .top-nav {
+        order: 3;
+        flex-basis: 100%;
+        height: 44px;
+        margin-top: 0.75rem;
+        border-top: 1px solid var(--border);
+        /* Em linha própria o menu cabe inteiro: sem rolagem, sem item cortado. */
+        overflow-x: visible;
+    }
+
+    /* Na linha de cima sobra espaço de sobra, então o nome e o cargo voltam. */
     .user-info {
-        display: none;
+        display: block;
     }
 }
 
-@media (max-width: 1500px) {
-    .nav-item {
-        padding: 0 0.55rem;
+/* Entre 1500 e 1600 é uma linha só e o espaço fica justo: o nome e o cargo ao
+   lado do avatar são a primeira coisa a sair, porque o avatar já identifica
+   quem está logado. */
+@media (min-width: 1500px) and (max-width: 1600px) {
+    .user-info {
+        display: none;
     }
 
     .top-header {
