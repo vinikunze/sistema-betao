@@ -92,6 +92,7 @@
                     <div class="user-avatar" id="sb-avatar">--</div>
                     <div class="user-info hidden-mobile"><strong id="sb-uname">Usuário</strong><span
                             id="sb-role-display">Sócio</span></div>
+                    <button class="btn-logout" onclick="abrirTrocarSenha()" title="Trocar minha senha"><span data-ico="chave" data-ico-tam="17"></span></button>
                     <button class="btn-logout" onclick="doLogout()" title="Sair"><span data-ico="sair" data-ico-tam="18"></span></button>
                 </div>
                 <button class="mobile-menu-btn" onclick="toggleMenu()"><span data-ico="menu" data-ico-tam="20"></span></button>
@@ -675,6 +676,24 @@
                     <button class="btn btn-primary" id="btn-etapa-avancar" onclick="etapaProxima()">Avançar<span data-ico="avancar" style="margin:0 0 0 6px;"></span></button>
                     <button class="btn btn-primary" onclick="saveDoc()" id="btn-save-doc"><span data-ico="salvar"></span>Gravar</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="modal-senha">
+        <div class="modal-box" style="max-width:420px;">
+            <h2 style="margin:0 0 4px;">Trocar minha senha</h2>
+            <p style="margin:0 0 1.25rem; color:var(--text-dim); font-size:13px;" id="senha-quem">--</p>
+            <div id="senha-erro" class="auth-error" style="display:none;"></div>
+            <div class="form-group"><label>Senha atual</label>
+                <input type="password" id="s-atual" autocomplete="current-password"></div>
+            <div class="form-group"><label>Senha nova</label>
+                <input type="password" id="s-nova" autocomplete="new-password" placeholder="ao menos 8 caracteres"></div>
+            <div class="form-group"><label>Repita a senha nova</label>
+                <input type="password" id="s-confirma" autocomplete="new-password"></div>
+            <div class="rodape-acoes" style="justify-content:flex-end; margin-top:1rem;">
+                <button class="btn btn-secondary" onclick="fecharTrocarSenha()">Cancelar</button>
+                <button class="btn btn-primary" id="btn-trocar-senha" onclick="salvarNovaSenha()">Trocar senha</button>
             </div>
         </div>
     </div>

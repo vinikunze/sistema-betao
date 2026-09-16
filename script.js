@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.9-dados-da-oficina';
+const APP_VERSION = '2026-09-16.11-icone-chave';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -164,8 +164,8 @@ function switchTab(mode) {
     loginMode = mode; document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('form-login').classList.remove('hidden'); document.getElementById('form-register').classList.add('hidden');
     const labelEmail = document.getElementById('label-email'); const inputEmail = document.getElementById('l-email');
-    if (mode === 'login') { document.getElementById('tab-login').classList.add('active'); document.getElementById('login-title').textContent = "Acesso Proprietário"; labelEmail.textContent = "E-mail do Sócio"; inputEmail.placeholder = "seu@email.com"; inputEmail.value = ""; }
-    else if (mode === 'mecanico') { document.getElementById('tab-mec').classList.add('active'); document.getElementById('login-title').textContent = "Painel do Colaborador"; labelEmail.textContent = "Nome do Mecânico"; inputEmail.placeholder = "Ex: Patrik..."; inputEmail.value = ""; }
+    if (mode === 'login') { document.getElementById('tab-login').classList.add('active'); document.getElementById('login-title').textContent = "Acesso do sócio"; labelEmail.textContent = "E-mail do Sócio"; inputEmail.placeholder = "seu@email.com"; inputEmail.value = ""; }
+    else if (mode === 'mecanico') { document.getElementById('tab-mec').classList.add('active'); document.getElementById('login-title').textContent = "Acesso do mecânico"; labelEmail.textContent = "Nome do Mecânico"; inputEmail.placeholder = "Ex: Patrik..."; inputEmail.value = ""; }
     else { document.getElementById('tab-reg').classList.add('active'); document.getElementById('form-login').classList.add('hidden'); document.getElementById('form-register').classList.remove('hidden'); }
 }
 
@@ -1626,6 +1626,62 @@ function configurarCliquesNav() {
             if (overlay) overlay.style.display = 'none';
         });
     });
+}
+
+/* =========================================
+   TROCAR A PRÓPRIA SENHA
+   A senha vive em dois lugares — `credenciais` e a conta do Supabase — e a
+   troca passa por uma função do banco que mexe nos dois. Usar
+   `auth.updateUser({password})` daqui trocaria só um lado, e a rede de
+   segurança do login veria a senha antiga em `credenciais` e regravaria a
+   velha por cima da nova na primeira tentativa que falhasse.
+========================================= */
+function abrirTrocarSenha() {
+    if (!session) return;
+    const quem = document.getElementById('senha-quem');
+    if (quem) quem.textContent = session.nome + ' · ' + (session.role === 'socio' ? 'sócio' : 'mecânico');
+    ['s-atual', 's-nova', 's-confirma'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+    });
+    const erro = document.getElementById('senha-erro');
+    if (erro) { erro.style.display = 'none'; erro.textContent = ''; }
+    const m = document.getElementById('modal-senha');
+    if (m) m.style.display = 'flex';
+    const primeiro = document.getElementById('s-atual');
+    if (primeiro) setTimeout(() => primeiro.focus(), 80);
+}
+
+function fecharTrocarSenha() {
+    const m = document.getElementById('modal-senha');
+    if (m) m.style.display = 'none';
+}
+
+async function salvarNovaSenha() {
+    const atual = document.getElementById('s-atual').value;
+    const nova = document.getElementById('s-nova').value;
+    const confirma = document.getElementById('s-confirma').value;
+    const erro = document.getElementById('senha-erro');
+    const avisar = (msg) => { if (erro) { erro.textContent = msg; erro.style.display = 'block'; } };
+
+    if (erro) erro.style.display = 'none';
+    if (!atual || !nova) return avisar('Preencha a senha atual e a nova.');
+    /* Conferido aqui só para não dar uma volta no servidor à toa; o banco
+       confere de novo, que é onde a regra vale de verdade. */
+    if (nova.length < 8) return avisar('A senha nova precisa ter ao menos 8 caracteres.');
+    if (nova !== confirma) return avisar('A confirmação não bate com a senha nova.');
+
+    const btn = document.getElementById('btn-trocar-senha');
+    if (btn) { btn.disabled = true; btn.textContent = 'Trocando...'; }
+    const soltar = () => { if (btn) { btn.disabled = false; btn.textContent = 'Trocar senha'; } };
+
+    const { error } = await supabaseClient.rpc('betao_trocar_minha_senha', {
+        p_senha_atual: atual, p_senha_nova: nova
+    });
+    soltar();
+    if (error) { console.error('Trocar senha:', error); return avisar(mensagemErro(error)); }
+
+    fecharTrocarSenha();
+    toast('Senha trocada. Use a nova da próxima vez que entrar.');
 }
 
 /* Encerra a sessão NO SUPABASE também. Antes só limpava o navegador: o crachá
