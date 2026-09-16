@@ -139,6 +139,11 @@
                             <div class="value" id="d-ticket" data-value="0">R$ 0,00</div>
                             <div class="kpi-trend" id="d-ticket-trend">--</div>
                         </div>
+                        <div class="stat-card" style="border-top: 3px solid var(--gold);">
+                            <div class="label">Taxa de Retorno</div>
+                            <div class="value" id="d-retorno-taxa">0%</div>
+                            <div class="kpi-trend" id="d-retorno-info">--</div>
+                        </div>
                         <div class="stat-card stat-card-link" style="border-top: 3px solid var(--danger);"
                             onclick="irParaCobrancas()" title="Ver quem está devendo">
                             <div class="label">A Receber (carteira) ›</div>
@@ -537,6 +542,45 @@
             <datalist id="marcas-list"></datalist>
             <datalist id="modelos-list"></datalist>
 
+            <div id="alerta-garantia" class="alerta-garantia" style="display:none;"></div>
+
+            <details class="entrada-box" id="entrada-box">
+                <summary class="entrada-summary">
+                    <span>📋 Checklist de entrada</span>
+                    <span class="entrada-resumo" id="entrada-resumo">não preenchido</span>
+                </summary>
+
+                <div class="entrada-conteudo">
+                    <div class="entrada-linha">
+                        <label class="entrada-label">Combustível na chegada</label>
+                        <div class="combustivel-barra" id="combustivel-barra"></div>
+                    </div>
+
+                    <div class="entrada-linha">
+                        <label class="entrada-label">O que veio no carro</label>
+                        <div class="itens-grid" id="itens-grid"></div>
+                    </div>
+
+                    <div class="entrada-linha">
+                        <label class="entrada-label">Avarias e observações</label>
+                        <textarea id="entrada-avarias" rows="2"
+                            placeholder="Ex: risco na porta dianteira direita, para-choque solto..."></textarea>
+                    </div>
+
+                    <div class="entrada-linha">
+                        <label class="entrada-label">Fotos da entrada</label>
+                        <div class="fotos-acoes">
+                            <input type="file" id="entrada-fotos-input" accept="image/*" capture="environment"
+                                multiple style="display:none;" onchange="adicionarFotos(event)">
+                            <button type="button" class="btn btn-secondary"
+                                onclick="document.getElementById('entrada-fotos-input').click()">📷 Tirar / escolher foto</button>
+                            <span class="fotos-dica">A foto datada é o que encerra discussão sobre avaria.</span>
+                        </div>
+                        <div class="fotos-grid" id="entrada-fotos"></div>
+                    </div>
+                </div>
+            </details>
+
             <div class="checklist-section">
                 <div class="checklist-section-title">🛠️ Serviços</div>
                 <p class="checklist-hint">Toque para selecionar — ou digite para buscar no catálogo:</p>
@@ -570,6 +614,14 @@
                         id="sub-mo">R$ 0,00</span></div>
                 <div class="resumo-item"><span class="resumo-label">Peças</span><span class="resumo-val"
                         id="sub-pecas">R$ 0,00</span></div>
+                <div class="retorno-row" id="retorno-row" style="display:none;">
+                    <label class="retorno-check">
+                        <input type="checkbox" id="d-retorno" onchange="aoMarcarRetorno()">
+                        <span>Este serviço é <strong>retorno em garantia</strong></span>
+                    </label>
+                    <select id="d-retorno-os"></select>
+                    <input type="text" id="d-retorno-motivo" placeholder="O que voltou a dar problema?">
+                </div>
                 <div class="pagamento-row">
                     <div class="form-group" style="margin:0;"><label>Pagamento</label>
                         <select id="d-pagamento" onchange="aoMudarSituacaoPagamento()"></select></div>
@@ -744,6 +796,7 @@
     <script src="charts.js"></script>
     <script src="form-extras.js"></script>
     <script src="vehicle-fields.js"></script>
+    <script src="checklist.js"></script>
     <script src="diagnostico.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
