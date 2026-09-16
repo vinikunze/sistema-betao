@@ -1894,3 +1894,32 @@ td {
     color: var(--brand);
     font-size: 0.8rem;
 }
+
+/* =========================================
+   CABEÇALHO APERTADO
+   Com o botão de trocar senha, oito itens de menu + dois botões + bloco do
+   usuário passaram de 1440px por 138px, e "Relatórios" saía da tela. O menu
+   rola (a bateria e2e-navegacao garante que toda página continua alcançável),
+   mas item cortado parece defeito.
+   O que sai primeiro é decoração: o nome e o cargo ao lado do avatar, que já
+   identifica quem está logado. Volta assim que houver largura.
+========================================= */
+@media (max-width: 1600px) {
+    .user-info {
+        display: none;
+    }
+}
+
+@media (max-width: 1500px) {
+    .nav-item {
+        padding: 0 0.55rem;
+    }
+
+    .top-header {
+        gap: 0.75rem;
+    }
+
+    .user-menu {
+        gap: 0.5rem;
+    }
+}
