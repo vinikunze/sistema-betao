@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.8-entrada-com-conta';
+const APP_VERSION = '2026-09-16.9-dados-da-oficina';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -874,6 +874,12 @@ function aoMarcarRetorno() {
         const el = document.getElementById(id);
         if (el) el.disabled = !marcado;
     });
+    /* Diz na hora que a comissão vai zerar. Descobrir isso só no dia do acerto
+       é o tipo de surpresa que faz o mecânico achar que o sistema comeu o
+       dinheiro dele. */
+    const aviso = document.getElementById('retorno-aviso-comissao');
+    if (aviso) aviso.style.display = marcado ? 'flex' : 'none';
+    updateTotals();
 }
 
 /* =========================================
@@ -1074,7 +1080,25 @@ function updateTotals() {
 
 async function saveDoc() {
     try {
-        let tMO = 0, tCom = 0; stateOS.servicos.forEach(s => { const v = Number(s.valor) * Number(s.qtd); tMO += v; const m = db.mecanicos.find(x => x.id == s.mecanicoId); s.mecanicoNome = m ? m.nome : ''; s.comissaoVal = m ? (v * Number(m.comissao) / 100) : 0; tCom += s.comissaoVal; });
+        /* RETORNO EM GARANTIA NÃO PAGA COMISSÃO.
+           Regra da casa, decidida pelo Vinicius: "se é garantia, nós cobrimos
+           os custos". Antes o serviço refeito gerava comissão outra vez, então
+           o retrabalho saía caro duas vezes para a oficina — peça, mão de obra
+           e comissão de novo — e ainda premiava quem precisou refazer.
+
+           Zerado aqui, na gravação, e não só na tela: o painel do mecânico e o
+           relatório leem `comissaoVal` da OS gravada. Se dependesse da tela, um
+           retorno lançado por outro caminho passaria batido. */
+        const emGarantia = !!(document.getElementById('d-retorno') || {}).checked;
+        let tMO = 0, tCom = 0;
+        stateOS.servicos.forEach(s => {
+            const v = Number(s.valor) * Number(s.qtd);
+            tMO += v;
+            const m = db.mecanicos.find(x => x.id == s.mecanicoId);
+            s.mecanicoNome = m ? m.nome : '';
+            s.comissaoVal = (m && !emGarantia) ? (v * Number(m.comissao) / 100) : 0;
+            tCom += s.comissaoVal;
+        });
         const cP = stateOS.pecas.reduce((a, p) => a + (Number(p.custo) * Number(p.qtd)), 0); const rP = stateOS.pecas.reduce((a, p) => a + (Number(p.venda) * Number(p.qtd)), 0); const tot = tMO + rP;
 
         let id = stateOS.editId;

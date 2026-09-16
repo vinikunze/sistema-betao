@@ -1877,3 +1877,20 @@ td {
     gap: 5px;
     align-items: center;
 }
+
+
+/* Aviso de que o retorno em garantia zera a comissão. Aparece no momento em
+   que se marca a caixa, não no dia do acerto. */
+.retorno-aviso {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--brand-fraco);
+    border: 1px solid rgba(232, 160, 32, 0.22);
+    color: var(--brand);
+    font-size: 0.8rem;
+}
