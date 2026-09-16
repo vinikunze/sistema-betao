@@ -46,9 +46,19 @@ que dividem este mesmo Supabase) não enxerga nada da oficina.
 | `os` | tudo | lê só as OS em que trabalhou; cria orçamento |
 | `clientes`, `veiculos` | tudo | lê e cria |
 | `catalogo_pecas`, `catalogo_servicos` | tudo | só lê |
-| `mecanicos` | tudo | só lê — **não** muda a própria comissão |
-| `os_fotos` | tudo | fotos das OS dele |
-| `socios`, `credenciais`, `config_app` | nada pela API | nada |
+| `mecanicos` | tudo | só a própria linha — não vê a comissão dos colegas, nem muda a dele |
+| `os_fotos` | tudo | fotos das OS dele; pode apagar as delas |
+| balde `os-fotos` (storage) | tudo | tudo — precisa estar logado **e** ter linha em `perfis_betao` |
+| `socios` | só a própria linha | nada |
+| `credenciais`, `config_app` | nada pela API | nada |
+
+Duas linhas dessa tabela têm história. `socios` tem RLS ligada e ficou sem
+política nenhuma até a etapa 2 — com a política anônima no lugar isso nunca
+aparecia; sem ela, o cabeçalho passaria a dizer "Usuário" no lugar do nome, sem
+erro nenhum na tela. E o balde de fotos era o furo que sobrava depois de fechar
+as tabelas: ele é privado, mas as três políticas valiam para `anon`, então quem
+tivesse o endereço do site listava, baixava e **apagava** a foto de qualquer
+carro que passou pela oficina.
 
 As senhas continuam com **hash bcrypt**, agora em dois lugares que andam
 juntos: `credenciais` (inalcançável pela API) e `auth.users`. Cadastrar sócio
@@ -72,6 +82,16 @@ antigas valiam para `{anon, authenticated}`. Como as políticas do Postgres se
 somam — basta UMA liberar —, enquanto elas existiam as novas ficavam
 mascaradas, e um mecânico logado ainda conseguia subir a própria comissão. A
 migração da parte 2 é a que realmente fecha.
+
+**Aplicada em 16/09/2026**, depois de as duas contas entrarem de verdade (o
+sócio e o PATRIK, registrado em `auth.users.last_sign_in_at`). Junto saíram do
+banco `login_socio`, `login_mecanico` e `betao_reparar_senha`: as três
+conferiam senha **sem exigir login**, que é exatamente a porta que a etapa 2
+fecha. Conferido com a chave anon depois de aplicar: zero linha em `os`,
+`clientes`, `veiculos`, `mecanicos`, no catálogo e no balde de fotos.
+
+Se precisar reabrir tudo às pressas, o plano de volta está escrito no cabeçalho
+da própria migração.
 
 ## Diagnóstico
 
