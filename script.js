@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.1-checklist-garantia';
+const APP_VERSION = '2026-09-16.2-os-em-etapas';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -514,6 +514,64 @@ function atualizarResumoPagamento() {
     el.style.color = falta > 0 ? 'var(--danger)' : 'var(--success)';
 }
 
+/* =========================================
+   NOVA OS EM ETAPAS
+   O modal cresceu para 3,5 telas de rolagem no tablet e 8,2 no celular,
+   conforme o checklist de entrada e o pagamento foram entrando. Rolar
+   procurando campo, com a mão suja, é onde o preenchimento trava.
+   Em etapas cada tela tem um assunto só e cabe sem rolar (ou quase).
+   O total fica fixo no rodapé, porque é o número que se olha o tempo todo.
+========================================= */
+const ETAPAS = [
+    { n: 1, nome: 'Veículo' },
+    { n: 2, nome: 'Serviços' },
+    { n: 3, nome: 'Peças' },
+    { n: 4, nome: 'Fechamento' },
+];
+let etapaAtual = 1;
+
+function montarBarraEtapas() {
+    const el = document.getElementById('etapas-barra'); if (!el) return;
+    el.innerHTML = ETAPAS.map(e => {
+        const estado = e.n === etapaAtual ? 'atual' : (e.n < etapaAtual ? 'feita' : '');
+        return `<button type="button" class="etapa-passo ${estado}" onclick="irParaEtapa(${e.n})">
+            <span class="etapa-num">${e.n < etapaAtual ? '✓' : e.n}</span><span class="etapa-nome">${e.nome}</span>
+        </button>`;
+    }).join('');
+}
+
+/* Contadores na barra: dá para ver que há 3 serviços marcados sem voltar lá. */
+function atualizarContadoresEtapas() {
+    const el = document.getElementById('etapas-barra'); if (!el) return;
+    const marca = (n, qtd) => {
+        const passo = el.querySelector(`.etapa-passo:nth-child(${n}) .etapa-nome`);
+        if (passo) passo.textContent = ETAPAS[n - 1].nome + (qtd ? ` (${qtd})` : '');
+    };
+    marca(2, (stateOS.servicos || []).length);
+    marca(3, (stateOS.pecas || []).length);
+}
+
+function irParaEtapa(n) {
+    etapaAtual = Math.min(Math.max(1, n), ETAPAS.length);
+    document.querySelectorAll('#modal-doc .etapa').forEach(el => {
+        el.style.display = Number(el.dataset.etapa) === etapaAtual ? 'block' : 'none';
+    });
+    montarBarraEtapas();
+    atualizarContadoresEtapas();
+
+    const voltar = document.getElementById('btn-etapa-voltar');
+    const avancar = document.getElementById('btn-etapa-avancar');
+    if (voltar) voltar.style.visibility = etapaAtual === 1 ? 'hidden' : 'visible';
+    if (avancar) avancar.style.visibility = etapaAtual === ETAPAS.length ? 'hidden' : 'visible';
+
+    // O corpo do modal volta ao topo: sem isso a etapa nova abre no meio.
+    const caixa = document.querySelector('#modal-doc .modal-box');
+    if (caixa) caixa.scrollTop = 0;
+}
+
+function etapaProxima() { irParaEtapa(etapaAtual + 1); }
+function etapaAnterior() { irParaEtapa(etapaAtual - 1); }
+
 function openDocModal(type, editId = null) {
     stateOS.type = type; stateOS.editId = editId;
     if (document.getElementById('mdoc-title')) document.getElementById('mdoc-title').textContent = type === 'os' ? 'Ordem de Serviço' : 'Orçamento';
@@ -572,6 +630,8 @@ function openDocModal(type, editId = null) {
         if (doc) mostrarAlertaGarantia(doc.veiculo_id, doc.placa);
     }
 
+    checklistExpandido = { servicos: false, pecas: false };
+    irParaEtapa(1);
     renderChecklistServicos(); renderChecklistPecas(); updateTotals();
     if (document.getElementById('modal-doc')) document.getElementById('modal-doc').style.display = 'flex';
 }
@@ -776,6 +836,18 @@ function botaoChecklist(tipo, item) {
     return `<button type="button" class="checklist-btn ${ativo ? 'checklist-btn-active' : ''}" onclick="${acao}('${item.id}', '${item.nome.replace(/'/g, "\\'")}')"><span class="check-icon">${ativo ? '✓' : '+'}</span>${item.nome}</button>`;
 }
 
+/* Com quase 100 itens no catálogo, a lista inteira ocupava 4 telas de rolagem
+   no celular. Mostra um punhado e guarda o resto atrás de um toque: quem sabe
+   o que quer digita na busca, quem está olhando vê os mais prováveis primeiro.
+   Com busca ativa não corta nada — ali o resultado já é curto por definição. */
+const CHECKLIST_VISIVEL = 14;
+let checklistExpandido = { servicos: false, pecas: false };
+
+function expandirChecklist(tipo) {
+    checklistExpandido[tipo] = true;
+    filtrarChecklist(tipo);
+}
+
 function montarChecklist(tipo, lista, termo) {
     const usos = tipo === 'pecas' ? contarUsos().pecas : contarUsos().servicos;
     const botao = (i) => botaoChecklist(tipo, i);
@@ -785,10 +857,20 @@ function montarChecklist(tipo, lista, termo) {
             .sort((a, b) => (usos.get(b.id) || 0) - (usos.get(a.id) || 0))
             .map(botao).join('');
     }
+
     const { topo, resto } = separarMaisUsados(lista, usos);
-    if (!topo.length) return lista.map(botao).join('');
+    const expandido = checklistExpandido[tipo];
+    const cabem = Math.max(0, CHECKLIST_VISIVEL - topo.length);
+    const mostrar = expandido ? resto : resto.slice(0, cabem);
+    const escondidos = resto.length - mostrar.length;
+
+    const maisBotao = escondidos > 0
+        ? `<button type="button" class="checklist-mais" onclick="expandirChecklist('${tipo}')">Ver todos (+${escondidos})</button>`
+        : '';
+
+    if (!topo.length) return mostrar.map(botao).join('') + maisBotao;
     return '<div class="checklist-grupo">★ Mais usados</div>' + topo.map(botao).join('')
-        + '<div class="checklist-grupo">Todos</div>' + resto.map(botao).join('');
+        + '<div class="checklist-grupo">Todos</div>' + mostrar.map(botao).join('') + maisBotao;
 }
 
 function checklistVazio(tipo, termo) {
@@ -829,6 +911,9 @@ function updateTotals() {
         elTotal.textContent = fmt(mo + pe);
         elTotal.dataset.valor = mo + pe;   // o número cru, para o cálculo do que falta receber
     }
+    const elRodape = document.getElementById('rodape-total');
+    if (elRodape) elRodape.textContent = fmt(mo + pe);
+    atualizarContadoresEtapas();
     if (document.getElementById('sub-mo')) document.getElementById('sub-mo').textContent = fmt(mo);
     if (document.getElementById('sub-pecas')) document.getElementById('sub-pecas').textContent = fmt(pe);
     atualizarResumoPagamento();
