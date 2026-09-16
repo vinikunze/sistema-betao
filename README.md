@@ -24,15 +24,54 @@ O schema está versionado em `supabase/migrations/`. Para recriar tudo do zero e
 
 A chave usada no frontend é a **chave anon clássica (JWT)**, não a `sb_publishable_...`. Com a chave publicável o app falhava no celular e no tablet com erro genérico de rede. Credenciais administrativas nunca devem entrar no repositório nem ser enviadas ao navegador.
 
-### Senhas e acesso
+### Quem entra, e o que cada um enxerga
 
-As senhas ficam com **hash bcrypt** na tabela `credenciais`, que não tem nenhuma policy de RLS e portanto é inalcançável pela chave pública. O login acontece dentro do banco, por funções `SECURITY DEFINER` (`login_socio`, `login_mecanico`): o app manda usuário e senha e recebe de volta só o id e o nome.
+Cada pessoa da oficina tem uma **conta no Supabase Auth**, e é o crachá dessa
+sessão que o banco confere em cada consulta. A chave anon que está no código do
+site, sozinha, não lê nem escreve uma linha.
 
-Antes, as senhas eram texto puro e a tela de login baixava a tabela de sócios inteira para comparar no navegador — qualquer pessoa com o endereço do site lia a senha do dono antes de digitar qualquer coisa. A tabela `socios` deixou de ser legível pela chave pública, e o código da empresa saiu do `script.js` para a tabela `config_app`.
+O sócio entra pelo e-mail. O mecânico continua digitando **só o nome** — o
+endereço que o Supabase exige (`patrik@mecanico.betaoautocenter.com.br`) é
+montado a partir do nome, pelo app e pelo banco, com a mesma regra. Se as duas
+pontas discordarem, ele não entra; por isso a regra vive num lugar só de cada
+lado (`emailDoMecanico` no `script.js`, e o mesmo `translate/regexp_replace`
+nas funções SQL).
 
-Cadastro de sócio e de mecânico também passam por funções (`registrar_socio`, `salvar_mecanico`, `deletar_mecanico`), que validam o código da empresa e geram o hash no servidor.
+`perfis_betao` liga a conta ao cadastro em `socios`/`mecanicos` e diz o papel.
+Quem está logado no projeto mas não tem linha ali (os outros sistemas pessoais
+que dividem este mesmo Supabase) não enxerga nada da oficina.
 
-**O que ainda falta.** As tabelas `os`, `mecanicos` e os catálogos continuam liberados para leitura e escrita por quem tiver a URL do site, porque o app ainda usa a chave pública sem Supabase Auth. Ou seja: as senhas estão protegidas, mas os dados não. Fechar isso exige migrar para Supabase Auth e escrever políticas de RLS baseadas em `auth.uid()`, de forma que o mecânico enxergue apenas as OS dele.
+| tabela | sócio | mecânico |
+|---|---|---|
+| `os` | tudo | lê só as OS em que trabalhou; cria orçamento |
+| `clientes`, `veiculos` | tudo | lê e cria |
+| `catalogo_pecas`, `catalogo_servicos` | tudo | só lê |
+| `mecanicos` | tudo | só lê — **não** muda a própria comissão |
+| `os_fotos` | tudo | fotos das OS dele |
+| `socios`, `credenciais`, `config_app` | nada pela API | nada |
+
+As senhas continuam com **hash bcrypt**, agora em dois lugares que andam
+juntos: `credenciais` (inalcançável pela API) e `auth.users`. Cadastrar sócio
+ou mecânico passa por função `SECURITY DEFINER` que cria os dois de uma vez —
+`registrar_socio`, `salvar_mecanico`, `deletar_mecanico` —, e as duas últimas
+agora exigem que quem chama seja sócio. Antes não perguntavam: com a chave
+pública, qualquer um criava mecânico ou mexia na comissão dos existentes.
+
+O papel vem do banco a cada abertura, não do `localStorage`. Antes bastava
+trocar `"mecanico"` por `"socio"` no navegador para ver o faturamento inteiro.
+
+**Histórico.** Antes de tudo isso as senhas eram texto puro e a tela de login
+baixava a tabela de sócios inteira para comparar no navegador. Depois vieram o
+hash e as funções de login, que protegeram as senhas — mas não os dados: as
+sete tabelas da oficina seguiam com uma política `ALL to anon using (true)`, e
+quem tivesse o endereço do site lia e escrevia tudo sem senha nenhuma. É isso
+que a etapa acima fechou.
+
+Uma armadilha que só apareceu no teste, e que vale lembrar: aquelas políticas
+antigas valiam para `{anon, authenticated}`. Como as políticas do Postgres se
+somam — basta UMA liberar —, enquanto elas existiam as novas ficavam
+mascaradas, e um mecânico logado ainda conseguia subir a própria comissão. A
+migração da parte 2 é a que realmente fecha.
 
 ## Diagnóstico
 
