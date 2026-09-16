@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.12-acesso-fechado';
+const APP_VERSION = '2026-09-16.13-menu-no-notebook';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -625,7 +625,14 @@ async function drop(ev) {
 function montarSelectsPagamento() {
     const sit = document.getElementById('d-pagamento');
     if (sit && !sit.options.length) {
-        sit.innerHTML = SITUACOES_PAGAMENTO.map(x => `<option value="${x.id}">${x.bolinha} ${x.nome}</option>`).join('');
+        /* Aqui havia `${x.bolinha}`, sobra de quando cada situação carregava um
+           emoji de bolinha colorida. A troca dos emojis por ícones desenhados
+           renomeou a propriedade para `tom`, e esta linha ficou para trás: o
+           select mostrava "undefined Falta acertar" na tela da OS.
+           E não dá para pôr o ícone de volta: dentro de um <option> o navegador
+           só aceita texto puro — nada de <span>, nada de SVG. A cor da situação
+           já aparece na etiqueta da OS, que é onde ela informa alguma coisa. */
+        sit.innerHTML = SITUACOES_PAGAMENTO.map(x => `<option value="${x.id}">${x.nome}</option>`).join('');
     }
     const forma = document.getElementById('d-forma-pagamento');
     if (forma && !forma.options.length) {
