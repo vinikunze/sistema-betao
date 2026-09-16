@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.3-pdf-completo';
+const APP_VERSION = '2026-09-16.4-simulacao-do-dia';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -62,6 +62,30 @@ let stateOS = { editId: null, type: 'os', servicos: [], pecas: [], checklist: nu
 let faturamentoChartInstance = null; let ticketChartInstance = null;
 
 const fmt = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0);
+
+/* Preço se escreve com vírgula: "89,90", "1.250,00". O Number() do JavaScript
+   não entende nenhum dos dois — "89,90" virava 8990 e a OS saía cem vezes mais
+   cara. Aqui a conta é feita do jeito que a gente digita, aceitando vírgula,
+   ponto de milhar ou o ponto decimal de quem está acostumado com computador. */
+function valorBR(entrada) {
+    if (typeof entrada === 'number') return isNaN(entrada) ? 0 : entrada;
+    let s = String(entrada == null ? '' : entrada).trim().replace(/[^\d.,-]/g, '');
+    if (!s) return 0;
+    const virgula = s.lastIndexOf(','), ponto = s.lastIndexOf('.');
+    if (virgula >= 0 && ponto >= 0) {
+        // Manda o separador que vem por último: 1.250,00 e 1,250.00 caem certos.
+        s = virgula > ponto ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+    } else if (virgula >= 0) {
+        s = s.replace(/,/g, '.');
+    } else if (ponto >= 0) {
+        /* Só ponto é ambíguo: "1.250" é mil e duzentos e cinquenta, mas "89.90"
+           é oitenta e nove e noventa. Grupo final de 3 dígitos = milhar. */
+        const partes = s.split('.');
+        if (partes.length > 1 && partes[partes.length - 1].length === 3) s = partes.join('');
+    }
+    const n = Number(s);
+    return isNaN(n) ? 0 : n;
+}
 function getTodayString() { const tzoffset = (new Date()).getTimezoneOffset() * 60000; return new Date(Date.now() - tzoffset).toISOString().split('T')[0]; }
 function parseBRDateToISO(brDateStr) { if (!brDateStr) return ''; const parts = brDateStr.split('/'); if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`; return brDateStr; }
 function toast(msg, err = false) { const t = document.getElementById('toast'); if (!t) return; t.textContent = msg; t.className = 'toast show ' + (err ? 'err' : ''); setTimeout(() => t.classList.remove('show'), 3000); }
@@ -508,7 +532,7 @@ function atualizarResumoPagamento() {
     const el = document.getElementById('d-falta-receber');
     if (!el) return;
     const total = totalAtualDoDoc();
-    const pago = Number((document.getElementById('d-valor-pago') || {}).value) || 0;
+    const pago = valorBR((document.getElementById('d-valor-pago') || {}).value);
     const falta = Math.max(0, total - pago);
     el.textContent = falta > 0 ? 'Falta receber ' + fmt(falta) : 'Quitado';
     el.style.color = falta > 0 ? 'var(--danger)' : 'var(--success)';
@@ -887,7 +911,7 @@ function renderChecklistServicos() {
     renderServicosAtivos();
 }
 function toggleServico(catalogoId, nome) { const idx = stateOS.servicos.findIndex(s => s.catalogoId === catalogoId); if (idx >= 0) stateOS.servicos.splice(idx, 1); else stateOS.servicos.push({ id: Date.now().toString(), catalogoId, descricao: nome.toUpperCase(), mecanicoId: (session.role === 'mecanico' ? session.id : ''), qtd: 1, valor: 0 }); renderChecklistServicos(); updateTotals(); }
-function renderServicosAtivos() { const el = document.getElementById('servicos-ativos'); if (!el) return; el.innerHTML = stateOS.servicos.length ? `<div class="ativo-header-row"><span>Serviço</span><span>Mecânico</span><span>Qtd</span><span>R$ Unit.</span><span></span></div>` + stateOS.servicos.map(s => `<div class="ativo-row"><span class="ativo-nome">${s.descricao}</span><select onchange="updS('${s.id}','mecanicoId',this.value)"><option value="">Loja</option>${db.mecanicos.map(m => `<option value="${m.id}" ${s.mecanicoId == m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}</select><input type="number" value="${s.qtd}" oninput="updS('${s.id}','qtd',this.value)"><input type="number" value="${s.valor}" oninput="updS('${s.id}','valor',this.value)"><button class="btn btn-danger btn-sm" onclick="removeServico('${s.id}')">✕</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
+function renderServicosAtivos() { const el = document.getElementById('servicos-ativos'); if (!el) return; el.innerHTML = stateOS.servicos.length ? `<div class="ativo-header-row"><span>Serviço</span><span>Mecânico</span><span>Qtd</span><span>R$ Unit.</span><span></span></div>` + stateOS.servicos.map(s => `<div class="ativo-row"><span class="ativo-nome">${s.descricao}</span><select onchange="updS('${s.id}','mecanicoId',this.value)"><option value="">Loja</option>${db.mecanicos.map(m => `<option value="${m.id}" ${s.mecanicoId == m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}</select><input type="number" value="${s.qtd}" oninput="updS('${s.id}','qtd',this.value)"><input type="text" inputmode="decimal" value="${s.valor}" oninput="updS('${s.id}','valor',this.value)"><button class="btn btn-danger btn-sm" onclick="removeServico('${s.id}')">✕</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
 function removeServico(id) { stateOS.servicos = stateOS.servicos.filter(s => s.id !== id); renderChecklistServicos(); updateTotals(); }
 
 function renderChecklistPecas() {
@@ -898,11 +922,11 @@ function renderChecklistPecas() {
     renderPecasAtivas();
 }
 function togglePeca(catalogoId, nome) { const idx = stateOS.pecas.findIndex(p => p.catalogoId === catalogoId); if (idx >= 0) stateOS.pecas.splice(idx, 1); else stateOS.pecas.push({ id: Date.now().toString(), catalogoId, nome: nome.toUpperCase(), qtd: 1, custo: 0, venda: 0 }); renderChecklistPecas(); updateTotals(); }
-function renderPecasAtivas() { const el = document.getElementById('pecas-ativas'); if (!el) return; el.innerHTML = stateOS.pecas.length ? `<div class="ativo-header-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span>Peça</span><span>Qtd</span><span>Custo</span><span>Venda</span><span></span></div>` + stateOS.pecas.map(p => `<div class="ativo-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span class="ativo-nome">${p.nome}</span><input type="number" value="${p.qtd}" oninput="updP('${p.id}','qtd',this.value)"><input type="number" value="${p.custo}" oninput="updP('${p.id}','custo',this.value)"><input type="number" value="${p.venda}" oninput="updP('${p.id}','venda',this.value)"><button class="btn btn-danger btn-sm" onclick="removePeca('${p.id}')">✕</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
+function renderPecasAtivas() { const el = document.getElementById('pecas-ativas'); if (!el) return; el.innerHTML = stateOS.pecas.length ? `<div class="ativo-header-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span>Peça</span><span>Qtd</span><span>Custo</span><span>Venda</span><span></span></div>` + stateOS.pecas.map(p => `<div class="ativo-row" style="grid-template-columns: 2fr 0.6fr 1fr 1fr auto;"><span class="ativo-nome">${p.nome}</span><input type="number" value="${p.qtd}" oninput="updP('${p.id}','qtd',this.value)"><input type="text" inputmode="decimal" value="${p.custo}" oninput="updP('${p.id}','custo',this.value)"><input type="text" inputmode="decimal" value="${p.venda}" oninput="updP('${p.id}','venda',this.value)"><button class="btn btn-danger btn-sm" onclick="removePeca('${p.id}')">✕</button></div>`).join('') : '<p style="color:var(--text-dim); font-size:12px;">Vazio</p>'; }
 function removePeca(id) { stateOS.pecas = stateOS.pecas.filter(p => p.id !== id); renderChecklistPecas(); updateTotals(); }
 
-function updS(id, f, v) { const s = stateOS.servicos.find(x => x.id == id); if (s) s[f] = (f === 'valor' || f === 'qtd') ? Number(v) : v; updateTotals(); }
-function updP(id, f, v) { const p = stateOS.pecas.find(x => x.id == id); if (p) p[f] = (f === 'nome') ? v.toUpperCase() : Number(v); updateTotals(); }
+function updS(id, f, v) { const s = stateOS.servicos.find(x => x.id == id); if (s) s[f] = (f === 'valor' || f === 'qtd') ? valorBR(v) : v; updateTotals(); }
+function updP(id, f, v) { const p = stateOS.pecas.find(x => x.id == id); if (p) p[f] = (f === 'nome') ? v.toUpperCase() : valorBR(v); updateTotals(); }
 function updateTotals() {
     const mo = stateOS.servicos.reduce((a, s) => a + (Number(s.valor) * Number(s.qtd)), 0);
     const pe = stateOS.pecas.reduce((a, p) => a + (Number(p.venda) * Number(p.qtd)), 0);
@@ -956,7 +980,7 @@ async function saveDoc() {
         // "pago" sempre quita — assim o que falta receber não mente.
         const situacao = document.getElementById('d-pagamento') ? document.getElementById('d-pagamento').value : 'nao_pago';
         const formaPg = document.getElementById('d-forma-pagamento') ? document.getElementById('d-forma-pagamento').value : '';
-        let pago = Number((document.getElementById('d-valor-pago') || {}).value) || 0;
+        let pago = valorBR((document.getElementById('d-valor-pago') || {}).value);
         if (situacao === 'pago') pago = tot;
         if (situacao === 'nao_pago') pago = 0;
         pago = Math.min(Math.max(0, pago), tot);
@@ -1109,8 +1133,31 @@ function generatePDF() {
 /* =========================================
    8. OUTRAS PÁGINAS E EXTRAS
 ========================================= */
+/* Sem período escolhido, o painel abre no MÊS CORRENTE — igual ao dashboard do
+   dono. Antes ele somava tudo desde sempre: na simulação do dia o PATRIK via
+   R$ 290,00 quando o mês era R$ 254,00, porque entrava junto um serviço do mês
+   passado. No dia do acerto isso vira discussão. */
+function periodoDoMecanico() {
+    const elIni = document.getElementById('m-data-inicio');
+    const elFim = document.getElementById('m-data-fim');
+    const dIni = elIni ? elIni.value : '';
+    const dFim = elFim ? elFim.value : '';
+    if (dIni || dFim) return { ini: dIni, fim: dFim, rotulo: 'no período' };
+    const hoje = new Date();
+    return {
+        ini: new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0],
+        fim: new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().split('T')[0],
+        rotulo: 'em ' + hoje.toLocaleDateString('pt-BR', { month: 'long' }),
+    };
+}
+
 function renderPainelMecanico() {
-    const dIni = document.getElementById('m-data-inicio') ? document.getElementById('m-data-inicio').value : ''; const dFim = document.getElementById('m-data-fim') ? document.getElementById('m-data-fim').value : ''; let totalMO = 0, totalComissao = 0, qtd = 0; const html = []; db.os.filter(o => osConcluida(o)).forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { o.servicos.forEach(s => { if (s.mecanicoId == session.id) { totalMO += (Number(s.valor) * Number(s.qtd)); totalComissao += (Number(s.comissaoVal) || 0); qtd++; html.push(`<tr><td>${o.data}</td><td>${o.veiculo}</td><td>${s.descricao}</td><td style="color:var(--success); font-weight:bold;">${fmt(s.comissaoVal)}</td></tr>`); } }); } }); const elCom = document.getElementById('mec-total-comissao'); if (elCom) elCom.textContent = fmt(totalComissao); const elMo = document.getElementById('mec-total-mo'); if (elMo) elMo.textContent = fmt(totalMO); const elQtd = document.getElementById('mec-qtd-trabalhos'); if (elQtd) elQtd.textContent = qtd; const elBody = document.getElementById('mec-tbody'); if (elBody) elBody.innerHTML = html.join('') || '<tr><td colspan="4" style="text-align:center;">Nenhum serviço.</td></tr>';
+    const per = periodoDoMecanico(); const dIni = per.ini, dFim = per.fim;
+    const elPer = document.getElementById('mec-periodo'); if (elPer) elPer.textContent = per.rotulo;
+    /* Comissão de OS que o cliente ainda não pagou não é dinheiro na mão da
+       oficina. O mecânico precisa ver isso separado, senão cobra um acerto que
+       ainda não entrou no caixa. */
+    let totalMO = 0, totalComissao = 0, comissaoPendente = 0, qtd = 0; const html = []; db.os.filter(o => osConcluida(o)).forEach(o => { const iso = o.dataISO || parseBRDateToISO(o.data); if ((!dIni || iso >= dIni) && (!dFim || iso <= dFim)) { const pendente = aReceberDaOS(o) > 0; o.servicos.forEach(s => { if (s.mecanicoId == session.id) { const c = Number(s.comissaoVal) || 0; totalMO += (Number(s.valor) * Number(s.qtd)); totalComissao += c; if (pendente) comissaoPendente += c; qtd++; html.push(`<tr><td>${o.data}</td><td>${o.veiculo}</td><td>${s.descricao}${pendente ? ' <span style="color:var(--danger); background:rgba(239,68,68,0.1); padding:3px 7px; border-radius:4px; font-size:10px; font-weight:bold; white-space:nowrap;">CLIENTE NÃO PAGOU</span>' : ''}</td><td style="color:var(--success); font-weight:bold;">${fmt(s.comissaoVal)}</td></tr>`); } }); } }); const elCom = document.getElementById('mec-total-comissao'); if (elCom) elCom.textContent = fmt(totalComissao); const elComInfo = document.getElementById('mec-comissao-info'); if (elComInfo) elComInfo.textContent = comissaoPendente > 0 ? fmt(comissaoPendente) + ' em OS que o cliente ainda não pagou' : (qtd ? 'Tudo em OS já paga' : '--'); const elMo = document.getElementById('mec-total-mo'); if (elMo) elMo.textContent = fmt(totalMO); const elQtd = document.getElementById('mec-qtd-trabalhos'); if (elQtd) elQtd.textContent = qtd; const elBody = document.getElementById('mec-tbody'); if (elBody) elBody.innerHTML = html.join('') || '<tr><td colspan="4" style="text-align:center;">Nenhum serviço.</td></tr>';
 
     // Lista os orçamentos que este mecânico solicitou
     const orcHtml = [];
@@ -1192,11 +1239,15 @@ function filterRelatorios() { renderRelatorios(); } function filterRelatoriosTod
 ========================================= */
 let filtroCobranca = 'receber';
 
+/* Cada filtro diz o que lista E o que soma. Antes todos somavam "o que falta",
+   então "Pagos" deixava de fora o dinheiro de quem pagou só uma parte — no dia
+   de teste, R$ 1.300,00 da Ana sumiram da conta do que entrou — e "Todos"
+   mostrava o mesmo número de "A receber" com outro nome. */
 const FILTROS_COBRANCA = {
-    receber: { label: 'Total a receber', teste: (o) => o.pagamento !== 'pago' },
-    parcial: { label: 'Falta acertar', teste: (o) => o.pagamento === 'parcial' },
-    pago: { label: 'Total recebido', teste: (o) => o.pagamento === 'pago' },
-    todos: { label: 'Total concluído', teste: () => true },
+    receber: { label: 'Total a receber', teste: (o) => aReceberDaOS(o) > 0, soma: aReceberDaOS },
+    parcial: { label: 'Falta acertar', teste: (o) => o.pagamento === 'parcial', soma: aReceberDaOS },
+    pago: { label: 'Total já recebido', teste: (o) => (Number(o.valor_pago) || 0) > 0, soma: (o) => Number(o.valor_pago) || 0 },
+    todos: { label: 'Total concluído', teste: () => true, soma: (o) => Number(o.total) || 0 },
 };
 
 function setFiltroCobranca(f) {
@@ -1244,7 +1295,7 @@ function renderCobrancas() {
     const lista = db.os.filter(o => osConcluida(o) && filtro.teste(o))
         .sort((a, b) => diasEmAberto(b) - diasEmAberto(a) || Number(b.id) - Number(a.id));
 
-    const soma = lista.reduce((a, o) => a + (filtroCobranca === 'pago' ? (Number(o.valor_pago) || 0) : aReceberDaOS(o)), 0);
+    const soma = lista.reduce((a, o) => a + filtro.soma(o), 0);
 
     const elLabel = document.getElementById('cob-label-total');
     if (elLabel) elLabel.textContent = filtro.label;

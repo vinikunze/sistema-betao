@@ -301,7 +301,7 @@
                             <button class="btn btn-sm btn-secondary" data-cob="parcial"
                                 onclick="setFiltroCobranca('parcial')">Falta acertar</button>
                             <button class="btn btn-sm btn-secondary" data-cob="pago"
-                                onclick="setFiltroCobranca('pago')">Pagos</button>
+                                onclick="setFiltroCobranca('pago')">Já recebido</button>
                             <button class="btn btn-sm btn-secondary" data-cob="todos"
                                 onclick="setFiltroCobranca('todos')">Todos</button>
                         </div>
@@ -391,8 +391,9 @@
                     </div>
                     <div class="stat-card"
                         style="margin-bottom:20px; background:linear-gradient(135deg, #1a1a1a, #000); border: 1px solid var(--brand);">
-                        <div class="label">Minha Comissão Recebida</div>
+                        <div class="label">Minha comissão <span id="mec-periodo">no mês</span></div>
                         <div class="value" id="mec-total-comissao">R$ 0,00</div>
+                        <div class="kpi-trend" id="mec-comissao-info">--</div>
                     </div>
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -624,6 +625,7 @@
                         id="sub-mo">R$ 0,00</span></div>
                 <div class="resumo-item"><span class="resumo-label">Peças</span><span class="resumo-val"
                         id="sub-pecas">R$ 0,00</span></div>
+            </div>
             </div><!-- /etapa 3 -->
 
             <div class="etapa" data-etapa="4">
@@ -641,7 +643,7 @@
                     <div class="form-group" style="margin:0;"><label>Forma</label>
                         <select id="d-forma-pagamento"></select></div>
                     <div class="form-group" style="margin:0;"><label>Valor pago</label>
-                        <input type="number" id="d-valor-pago" value="0" step="0.01"
+                        <input type="text" inputmode="decimal" id="d-valor-pago" value="0"
                             oninput="atualizarResumoPagamento()"></div>
                     <div class="pagamento-falta" id="d-falta-receber">Falta receber R$ 0,00</div>
                 </div>
@@ -654,7 +656,6 @@
                         <div style="font-weight:bold; font-size:26px; color:var(--brand);" id="res-total">R$ 0,00</div>
                     </div>
                 </div>
-            </div>
             </div><!-- /etapa 4 -->
 
             <div class="modal-rodape">
