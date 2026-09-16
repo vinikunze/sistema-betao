@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.4-simulacao-do-dia';
+const APP_VERSION = '2026-09-16.5-quadro-no-toque';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -463,7 +463,11 @@ function renderOSKanban() {
             <div class="kc-veiculo">${o.veiculo}</div>
             <div class="kc-cliente">👤 ${o.cliente || 'Sem Nome'} | 🚗 ${o.placa || 'Sem Placa'}</div>
             ${osConcluida(o) ? `<div class="kc-pagamento">${getPagamentoBadge(o)}</div>` : ''}
-            <div class="kc-footer"><span class="kc-date">${o.data}</span><button class="btn btn-secondary btn-sm" onclick="openDocModal('os','${o.id}')">✏️ Abrir</button></div>
+            <div class="kc-footer"><span class="kc-date">${o.data}</span>
+                <div class="kc-acoes">
+                    <button class="btn btn-secondary btn-sm" onclick="abrirMover('${o.id}')">➡️ Mover</button>
+                    <button class="btn btn-secondary btn-sm" onclick="openDocModal('os','${o.id}')">✏️ Abrir</button>
+                </div></div>
         </div>
     `;
     cardsAberta.innerHTML = abertas.map(buildCard).join('');
@@ -472,25 +476,66 @@ function renderOSKanban() {
     if (document.getElementById('cards-entregue')) document.getElementById('cards-entregue').innerHTML = entregues.map(buildCard).join('');
 }
 
+/* Arrastar-e-soltar só existe com mouse: no tablet e no celular o dedo não
+   dispara dragstart, e o quadro inteiro ficava só de leitura justamente nos
+   aparelhos da oficina. O botão "Mover" resolve nos dois, e num quadro de
+   quatro colunas escolher da lista é mais rápido que arrastar de qualquer
+   jeito. O arrastar continua funcionando para quem usa o computador. */
+const COLUNAS_OS = [
+    { status: 'aberta', nome: 'Aberta', bolinha: '🔵' },
+    { status: 'em_andamento', nome: 'Em andamento', bolinha: '🟡' },
+    { status: 'finalizada', nome: 'Finalizada', bolinha: '🟢' },
+    { status: 'entregue', nome: 'Entregue', bolinha: '🔷' },
+];
+const nomeColuna = (st) => (COLUNAS_OS.find(c => c.status === st) || {}).nome || st;
+
+/* Mostra na hora e desfaz se o banco recusar: um quadro que mudou de coluna
+   sem ter gravado é pior que um quadro lento. */
+async function moverOS(osId, novoStatus) {
+    const o = db.os.find(x => x.id == osId);
+    if (!o || o.status === novoStatus) return;
+    const anterior = o.status;
+    o.status = novoStatus;
+    renderOSKanban();
+    const { error } = await supabaseClient.from('os').update({ status: novoStatus }).eq('id', osId);
+    if (error) {
+        o.status = anterior;
+        renderOSKanban();
+        console.error(error);
+        return toast('Não deu para mover: ' + mensagemErro(error), true);
+    }
+    // Concluir uma OS mexe no faturamento, na carteira e na comissão.
+    renderizarTelas();
+    toast('OS #' + osId + ' → ' + nomeColuna(novoStatus));
+}
+
+function abrirMover(osId) {
+    const o = db.os.find(x => x.id == osId); if (!o) return;
+    const info = document.getElementById('mover-info');
+    if (info) info.textContent = (o.veiculo || '') + ' ' + (o.placa ? '· ' + o.placa : '') +
+        ' · ' + (o.cliente || 'sem nome') + ' · hoje em ' + nomeColuna(o.status);
+    const tit = document.getElementById('mover-titulo');
+    if (tit) tit.textContent = 'Mover OS #' + o.id + ' para';
+    const box = document.getElementById('mover-opcoes');
+    if (box) box.innerHTML = COLUNAS_OS.filter(c => c.status !== o.status).map(c =>
+        `<button type="button" class="mover-opcao" onclick="escolherMover('${o.id}','${c.status}')">
+            <span class="mover-bolinha">${c.bolinha}</span><span>${c.nome}</span>
+        </button>`).join('');
+    const m = document.getElementById('modal-mover');
+    if (m) m.style.display = 'flex';
+}
+
+function fecharMover() { const m = document.getElementById('modal-mover'); if (m) m.style.display = 'none'; }
+async function escolherMover(osId, st) { fecharMover(); await moverOS(osId, st); }
+
 function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
 function allowDrop(ev) { ev.preventDefault(); }
 async function drop(ev) {
     ev.preventDefault();
     const data = ev.dataTransfer.getData("text");
-    const cardElement = document.getElementById(data);
     const targetColumn = ev.target.closest('.kanban-column');
-    if (cardElement && targetColumn) {
-        targetColumn.querySelector('.kanban-cards').appendChild(cardElement);
-        const newStatus = targetColumn.getAttribute('data-status');
-        const osId = data.replace('kcard-', '');
-        const osIndex = db.os.findIndex(o => o.id == osId);
-        if (osIndex !== -1) {
-            db.os[osIndex].status = newStatus;
-            renderOSKanban();
-            const { error } = await supabaseClient.from('os').update({ status: newStatus }).eq('id', osId);
-            if (error) toast("Erro ao atualizar status", true); else toast("Status atualizado!");
-        }
-    }
+    if (!data || !targetColumn) return;
+    await moverOS(data.replace('kcard-', ''), targetColumn.getAttribute('data-status'));
 }
 
 /* =========================================

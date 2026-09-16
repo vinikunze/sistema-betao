@@ -1580,3 +1580,50 @@ tr:hover td {
 }
 
 .print-assinatura small { display: block; font-size: 10px; color: #333; }
+
+/* =========================================
+   MOVER OS ENTRE COLUNAS (toque)
+   Arrastar-e-soltar não existe em tela de toque. Estes são os alvos que o
+   dedo acerta: 52px de altura, nunca abaixo dos 44px de regra.
+========================================= */
+/* Os dois botões do cartão nascem .btn-sm, que dá 42px — dois a menos que o
+   mínimo que o dedo acerta sem errar. Aqui eles voltam para 44px. */
+.kc-acoes {
+    display: flex;
+    gap: 6px;
+}
+
+.kc-acoes .btn {
+    min-height: 44px;
+}
+
+.mover-opcao {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-main);
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.mover-opcao:hover,
+.mover-opcao:active {
+    border-color: var(--brand);
+    background: rgba(232, 160, 32, 0.08);
+}
+
+.mover-bolinha {
+    font-size: 18px;
+    line-height: 1;
+}
