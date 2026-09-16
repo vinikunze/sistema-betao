@@ -516,6 +516,10 @@
                 </div>
             </div>
 
+            <div class="etapas-barra" id="etapas-barra"></div>
+
+
+            <div class="etapa" data-etapa="1">
             <div class="os-form-grid">
                 <div class="form-group" style="position: relative;">
                     <label>Placa (Buscar)</label>
@@ -581,6 +585,9 @@
                 </div>
             </details>
 
+            </div><!-- /etapa 1 -->
+
+            <div class="etapa" data-etapa="2">
             <div class="checklist-section">
                 <div class="checklist-section-title">🛠️ Serviços</div>
                 <p class="checklist-hint">Toque para selecionar — ou digite para buscar no catálogo:</p>
@@ -595,6 +602,9 @@
                 <div class="checklist-buttons" id="checklist-servicos"></div>
                 <div class="ativo-container" id="servicos-ativos"></div>
             </div>
+            </div><!-- /etapa 2 -->
+
+            <div class="etapa" data-etapa="3">
             <div class="checklist-section">
                 <div class="checklist-section-title">⚙️ Peças</div>
                 <p class="checklist-hint">Toque para selecionar — ou digite para buscar no catálogo:</p>
@@ -614,6 +624,9 @@
                         id="sub-mo">R$ 0,00</span></div>
                 <div class="resumo-item"><span class="resumo-label">Peças</span><span class="resumo-val"
                         id="sub-pecas">R$ 0,00</span></div>
+            </div><!-- /etapa 3 -->
+
+            <div class="etapa" data-etapa="4">
                 <div class="retorno-row" id="retorno-row" style="display:none;">
                     <label class="retorno-check">
                         <input type="checkbox" id="d-retorno" onchange="aoMarcarRetorno()">
@@ -642,10 +655,20 @@
                     </div>
                 </div>
             </div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
-                <button class="btn btn-ghost"
-                    onclick="document.getElementById('modal-doc').style.display='none'">Cancelar</button>
-                <button class="btn btn-primary" onclick="saveDoc()" id="btn-save-doc">💾 Gravar</button>
+            </div><!-- /etapa 4 -->
+
+            <div class="modal-rodape">
+                <div class="rodape-total">
+                    <span class="rodape-total-label">Total</span>
+                    <strong id="rodape-total">R$ 0,00</strong>
+                </div>
+                <div class="rodape-acoes">
+                    <button class="btn btn-ghost" id="btn-etapa-voltar" onclick="etapaAnterior()">← Voltar</button>
+                    <button class="btn btn-secondary" id="btn-cancelar-doc"
+                        onclick="document.getElementById('modal-doc').style.display='none'">Cancelar</button>
+                    <button class="btn btn-primary" id="btn-etapa-avancar" onclick="etapaProxima()">Avançar →</button>
+                    <button class="btn btn-primary" onclick="saveDoc()" id="btn-save-doc">💾 Gravar</button>
+                </div>
             </div>
         </div>
     </div>

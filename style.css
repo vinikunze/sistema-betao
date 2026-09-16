@@ -1504,3 +1504,21 @@ tr:hover td {
 }
 
 .checklist-grupo:first-child { margin-top: 0; }
+
+/* "Ver todos" do checklist: mesma altura de toque dos itens, mas visualmente
+   secundário — é um atalho, não uma opção do catálogo. */
+.checklist-mais {
+    min-height: 44px;
+    padding: 10px 16px;
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 22px;
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.checklist-mais:hover { color: var(--brand); border-color: var(--brand); }
