@@ -1271,9 +1271,26 @@ tr:hover td {
         border-left: 3px solid var(--brand);
     }
 
+    /* O botão nascia com o tamanho do caractere: 24x25px. É o único jeito de
+       abrir o menu no tablet e no celular, e não dá para acertar com a mão
+       suja. 44px é o mínimo. */
     .mobile-menu-btn {
-        display: block;
-        margin-left: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        margin-left: 6px;
+        padding: 0;
+        background: none;
+        border: none;
+        border-radius: var(--radius-sm);
+        color: var(--text-main);
+        cursor: pointer;
+    }
+
+    .mobile-menu-btn:active {
+        background: var(--bg-elev);
     }
 
     .hidden-mobile {
@@ -1803,9 +1820,16 @@ td {
    O ☰ só tinha regra dentro do @media de 1024px: no computador ele aparecia do
    lado do menu que já estava na tela, e ainda roubava a largura que faltava
    para os oito itens caberem — era por isso que "Painel" montava em cima do
-   logotipo. */
-.mobile-menu-btn {
-    display: none;
+   logotipo.
+
+   A regra tem que ser MIN-width. Escrita solta, ela vinha depois do @media de
+   1024px neste mesmo arquivo e vencia por ordem: o ☰ sumia também no tablet e
+   no celular, onde o menu vive escondido na gaveta — ou seja, sem nenhum jeito
+   de trocar de tela. Tem caso de teste para isso agora. */
+@media (min-width: 1025px) {
+    .mobile-menu-btn {
+        display: none;
+    }
 }
 .logo-text,
 .btn,

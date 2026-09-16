@@ -1,8 +1,18 @@
 /* =====================================================
-   BETÃO — CAMADA DE REFINAMENTO (movimento + visual)
-   Sobrepõe o style.css. Para reverter, remova o <link>.
-   Conceito: precisão mecânica — movimento que "assenta"
-   como um mecanismo regulado; dourado como luz de painel.
+   BETÃO — MOVIMENTO E FEEDBACK
+   Sobrepõe o style.css.
+
+   Esta camada começou como "refinamento visual": vinheta dourada atrás da
+   página, brilho atrás do texto do menu, gradiente em cartão, cartão que sobe
+   4px no hover e mola em cada abertura de janela. Isso é linguagem de página
+   de venda. Numa ferramenta que fica aberta o dia inteiro na bancada,
+   movimento e brilho cansam, atrasam a leitura do número e fazem a tela
+   parecer demonstração em vez de sistema.
+
+   Ficou o que responde ao toque e informa: o apertar do botão, o foco visível,
+   a barra de atividade de rede (que na internet fraca da oficina é a única
+   pista de que o sistema está falando com o banco) e o respeito ao "movimento
+   reduzido" do aparelho. Saiu o resto — apagado, não sobrescrito.
    ===================================================== */
 
 :root {
@@ -13,23 +23,7 @@
     --dur-fast: 0.16s;
     --dur: 0.28s;
     --dur-slow: 0.5s;
-    --glow-brand: 0 0 0 1px rgba(232, 160, 32, .35), 0 8px 26px -8px rgba(232, 160, 32, .45);
 }
-
-/* Profundidade: vinheta de luz quente atrás de tudo */
-body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background:
-        radial-gradient(1100px 560px at 100% -12%, rgba(232, 160, 32, .06), transparent 60%),
-        radial-gradient(820px 460px at -8% 112%, rgba(59, 130, 246, .045), transparent 55%);
-}
-
-/* Rolagem suave */
-html { scroll-behavior: smooth; }
 
 /* ---------- BOTÕES: resposta tátil ---------- */
 .btn,
@@ -41,39 +35,11 @@ html { scroll-behavior: smooth; }
         color var(--dur-fast) var(--ease-out);
 }
 
-.btn:hover { transform: translateY(-1px); }
+/* O apertar fica: no tablet é a única confirmação de que o toque pegou.
+   O subir 1px no hover e o brilho dourado saíram — num botão que se aperta
+   cem vezes por dia, isso é ruído. */
 .btn:active,
-.btn-auth:active { transform: translateY(0) scale(.96); }
-
-.btn-primary:hover,
-.btn-success:hover,
-.btn-auth:hover {
-    box-shadow: var(--glow-brand);
-    transform: translateY(-1px);
-}
-
-/* Estado carregando: <button class="btn is-loading"> */
-.btn.is-loading {
-    color: transparent !important;
-    pointer-events: none;
-    position: relative;
-}
-
-.btn.is-loading::after {
-    content: "";
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    top: 50%;
-    left: 50%;
-    margin: -8px 0 0 -8px;
-    border-radius: 50%;
-    border: 2px solid rgba(255, 255, 255, .3);
-    border-top-color: #fff;
-    animation: bt-spin .6s linear infinite;
-}
-
-@keyframes bt-spin { to { transform: rotate(360deg); } }
+.btn-auth:active { transform: scale(.96); }
 
 /* ---------- BARRA DE PROGRESSO GLOBAL (painel/RPM) ---------- */
 .app-progress {
@@ -84,8 +50,7 @@ html { scroll-behavior: smooth; }
     width: 100%;
     transform: scaleX(0);
     transform-origin: 0 50%;
-    background: linear-gradient(90deg, var(--brand), #ffd884, var(--brand));
-    box-shadow: 0 0 14px rgba(232, 160, 32, .65);
+    background: var(--brand);
     z-index: 99999;
     opacity: 0;
     pointer-events: none;
@@ -108,84 +73,46 @@ html { scroll-behavior: smooth; }
     100% { transform: scaleX(.93); }
 }
 
-/* ---------- NAVEGAÇÃO: indicador deslizante e claro ---------- */
+/* ---------- NAVEGAÇÃO ---------- */
 .nav-item {
     position: relative;
     border-bottom: 3px solid transparent !important;
     transition: color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
 }
 
+/* Listra de 2px embaixo do item aberto. Antes tinha mola, brilho de 10px e
+   crescia pela metade no hover — três efeitos para dizer "você está aqui". */
 .nav-item::after {
     content: "";
     position: absolute;
-    left: 1rem;
-    right: 1rem;
+    left: 0;
+    right: 0;
     bottom: 0;
-    height: 3px;
+    height: 2px;
     background: var(--brand);
-    border-radius: 3px 3px 0 0;
-    transform: scaleX(0);
-    transform-origin: 50% 50%;
-    transition: transform var(--dur) var(--ease-spring), opacity var(--dur) var(--ease-out);
     opacity: 0;
-    box-shadow: 0 0 10px rgba(232, 160, 32, .5);
+    transition: opacity var(--dur) var(--ease-out);
 }
 
-.nav-item:hover::after { transform: scaleX(.45); opacity: .5; }
-.nav-item.active { color: var(--brand); text-shadow: 0 0 18px rgba(232, 160, 32, .35); }
-.nav-item.active::after { transform: scaleX(1); opacity: 1; }
+.nav-item.active { color: var(--brand); }
+.nav-item.active::after { opacity: 1; }
 
-/* ---------- TROCA DE PÁGINA: entrada orquestrada ---------- */
-.page.active { animation: page-enter var(--dur-slow) var(--ease-out); }
+/* ---------- TROCA DE PÁGINA ---------- */
+/* Sem animação. Deslizar 12px a cada clique custa meio segundo dezenas de
+   vezes por dia e some com a referência de onde a linha estava. */
 
-@keyframes page-enter {
-    from { opacity: 0; transform: translateY(14px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Cards surgem em cascata */
-.stats-grid > *,
-.responsive-grid > * {
-    animation: card-rise var(--dur) var(--ease-out) backwards;
-}
-
-.stats-grid > *:nth-child(1) { animation-delay: .03s; }
-.stats-grid > *:nth-child(2) { animation-delay: .07s; }
-.stats-grid > *:nth-child(3) { animation-delay: .11s; }
-.stats-grid > *:nth-child(4) { animation-delay: .15s; }
-.stats-grid > *:nth-child(5) { animation-delay: .19s; }
-.stats-grid > *:nth-child(6) { animation-delay: .23s; }
-
-@keyframes card-rise {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: none; }
-}
-
-/* ---------- CARDS: profundidade e brilho dourado ---------- */
-.stat-card {
-    transition: transform var(--dur) var(--ease-out), border-color var(--dur), box-shadow var(--dur);
-    background: linear-gradient(180deg, var(--bg-card), #0e0e0e) !important;
-}
-
-.stat-card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(232, 160, 32, .35) !important;
-    box-shadow: 0 16px 34px -12px rgba(0, 0, 0, .75);
-}
-
+/* ---------- CARTÕES ---------- */
+/* Só a borda responde. O gradiente para #0e0e0e, o subir 4px e a sombra de
+   34px faziam o cartão parecer um botão de site, e o gradiente ainda brigava
+   com a cor de fundo nova. */
+.stat-card,
 .kanban-card {
-    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast), border-color var(--dur-fast);
+    transition: border-color var(--dur) var(--ease-out);
 }
 
+.stat-card:hover,
 .kanban-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(232, 160, 32, .3);
-    box-shadow: 0 10px 22px -10px rgba(0, 0, 0, .65);
-}
-
-.kanban-card:active {
-    cursor: grabbing;
-    transform: scale(.99) rotate(.35deg);
+    border-color: var(--border-forte);
 }
 
 /* ---------- INPUTS: foco com brilho ---------- */
@@ -214,40 +141,29 @@ textarea:focus {
 .auth-tab { transition: color var(--dur) var(--ease-out), background var(--dur) var(--ease-out); }
 
 /* ---------- TOASTS: entrada com mola ---------- */
-.toast.show { animation: toast-in .42s var(--ease-spring); }
+.toast.show { animation: toast-in .18s var(--ease-out); }
 
 @keyframes toast-in {
-    from { transform: translateY(22px) scale(.95); opacity: 0; }
+    from { transform: translateY(8px); opacity: 0; }
     to { transform: none; opacity: 1; }
 }
 
 /* ---------- MODAIS: surgimento ---------- */
+/* Aparece em 0,14s, sem mola: a janela de Nova OS abre dezenas de vezes por
+   dia e ninguém quer esperar o salto assentar para começar a digitar. */
 .modal-box {
-    animation: modal-in var(--dur) var(--ease-spring);
+    animation: modal-in 0.14s var(--ease-out);
 }
 
 @keyframes modal-in {
-    from { transform: translateY(18px) scale(.97); opacity: 0; }
-    to { transform: none; opacity: 1; }
-}
-
-/* ---------- SKELETON (utilitário p/ uso futuro) ---------- */
-.skeleton {
-    background: linear-gradient(90deg, #141414 25%, #1e1e1e 37%, #141414 63%);
-    background-size: 400% 100%;
-    animation: shimmer 1.4s ease infinite;
-    border-radius: 8px;
-    color: transparent !important;
-}
-
-@keyframes shimmer {
-    0% { background-position: 100% 0; }
-    100% { background-position: -100% 0; }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* ---------- ALVOS DE TOQUE MAIORES NO MOBILE ---------- */
 @media (max-width: 768px) {
-    .btn { min-height: 42px; }
+    /* 42px ficava dois abaixo do mínimo que o dedo acerta sem errar. */
+    .btn { min-height: 44px; }
     .nav-item { padding: 0 1.1rem; }
 }
 
@@ -267,7 +183,7 @@ textarea:focus {
 /* =====================================================
    INTELIGÊNCIA DE VENDAS (BI do dashboard)
    ===================================================== */
-.bi-section { margin: 2rem 0; animation: page-enter var(--dur-slow) var(--ease-out); }
+.bi-section { margin: 2rem 0; }
 
 .bi-title-row {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -399,9 +315,9 @@ textarea:focus {
 /* Campos mais confortáveis e consistentes */
 .os-form-grid .form-group input {
     padding: 12px 14px !important;
-    border-radius: 12px !important;
+    border-radius: var(--radius);
     height: 46px;
-    background: #000 !important;
+    background: var(--bg-main);
     transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
 }
 .os-form-grid .form-group input:focus {
@@ -409,10 +325,9 @@ textarea:focus {
     box-shadow: 0 0 0 3px rgba(232, 160, 32, .16);
 }
 
-/* Dá feedback quando o campo tem conteúdo (precisa de placeholder p/ funcionar) */
-.os-form-grid .form-group input:not(:placeholder-shown) {
-    border-color: rgba(232, 160, 32, .4) !important;
-}
+/* A borda dourada em TODO campo preenchido acendia o formulário inteiro assim
+   que se digitava a primeira placa: dez campos dourados não destacam nada. O
+   destaque fica só no campo em foco. */
 
 @media (max-width: 480px) {
     .os-form-grid { grid-template-columns: 1fr; gap: .85rem; }
@@ -422,11 +337,11 @@ textarea:focus {
 .os-form-grid .form-group select {
     width: 100%;
     padding: 12px 14px !important;
-    border-radius: 12px !important;
+    border-radius: var(--radius);
     height: 46px;
-    background: #000 !important;
+    background: var(--bg-main);
     border: 1px solid var(--border);
-    color: #fff;
+    color: var(--text-main);
     font-family: var(--font-body);
     font-size: 14px;
     transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
@@ -832,72 +747,4 @@ textarea:focus {
     .rodape-acoes { width: 100%; }
     .rodape-acoes .btn { flex: 1; }
     #btn-cancelar-doc { display: none; }   /* o ✕ do topo já cancela */
-}
-
-/* =========================================
-   MENOS ENFEITE
-   Este arquivo trouxe gradiente em cartão, brilho atrás do texto do menu,
-   cartão que pula 4px no hover e animação de mola a cada troca de página.
-   Isso é linguagem de página de venda. Numa ferramenta que se olha oito horas
-   por dia, movimento e brilho cansam e atrapalham a leitura do número. Fica o
-   que serve — transição curta de cor —, sai o resto.
-========================================= */
-.stat-card {
-    background: var(--bg-card) !important;
-    transition: border-color var(--dur) var(--ease-out) !important;
-}
-
-.stat-card:hover {
-    transform: none;
-    border-color: var(--border-forte) !important;
-    box-shadow: none;
-}
-
-.kanban-card:hover {
-    transform: none;
-    border-color: var(--border-forte);
-    box-shadow: none;
-}
-
-.nav-item.active {
-    text-shadow: none;
-}
-
-.nav-item::after {
-    box-shadow: none;
-    border-radius: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    transition: opacity var(--dur) var(--ease-out);
-    transform: scaleX(1);
-}
-
-.nav-item:hover::after {
-    opacity: 0;
-}
-
-/* A página troca na hora. Deslizar 12px a cada clique é meio segundo perdido
-   dezenas de vezes por dia, e some com a referência de onde estava a linha. */
-.page.active {
-    animation: none;
-}
-
-.stat-card-link:active {
-    transform: none;
-}
-
-/* Números e títulos voltam para a fonte de texto. Syne em peso 800 é fonte de
-   identidade: boa no logotipo, cansativa num valor lido cem vezes por dia. */
-.bi-metric-val,
-.rev-total,
-.bi-highlight-head,
-.bi-title {
-    font-family: var(--font-body);
-    font-weight: 600;
-}
-
-.bi-metric-val,
-.rev-total {
-    font-variant-numeric: tabular-nums;
 }
