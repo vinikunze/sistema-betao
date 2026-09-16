@@ -767,6 +767,11 @@
                 <p><strong>Status:</strong> <span id="print-status">--</span></p>
             </div>
         </div>
+
+        <div class="print-aviso" id="print-retorno" style="display:none;">
+            ↩️ <strong>RETORNO EM GARANTIA</strong> — refeito sem custo, referente à OS
+            <span id="print-retorno-os">--</span>. <span id="print-retorno-motivo"></span>
+        </div>
         <div class="print-section">
             <h3>Dados do Cliente e Veículo</h3>
             <div class="print-grid">
@@ -776,7 +781,18 @@
                 <div><strong>Placa:</strong> <span id="print-placa">--</span></div>
                 <div><strong>KM:</strong> <span id="print-km">--</span></div>
                 <div><strong>Motorização:</strong> <span id="print-motor">--</span></div>
+                <div><strong>Telefone:</strong> <span id="print-telefone">--</span></div>
             </div>
+        </div>
+
+        <div class="print-section" id="print-checklist-secao" style="display:none;">
+            <h3>Checklist de Entrada</h3>
+            <div class="print-grid">
+                <div><strong>Combustível na chegada:</strong> <span id="print-combustivel">--</span></div>
+                <div><strong>Data de entrada:</strong> <span id="print-entrada-data">--</span></div>
+            </div>
+            <p class="print-linha"><strong>Itens recebidos:</strong> <span id="print-itens">--</span></p>
+            <p class="print-linha"><strong>Avarias observadas:</strong> <span id="print-avarias">Nenhuma</span></p>
         </div>
         <div class="print-section">
             <h3>Serviços Realizados</h3>
@@ -784,6 +800,7 @@
                 <thead>
                     <tr>
                         <th>Descrição</th>
+                        <th>Garantia</th>
                         <th>Qtd</th>
                         <th>Valor Un.</th>
                         <th>Total</th>
@@ -810,6 +827,34 @@
             <div><strong>Subtotal Mão de Obra:</strong> <span id="print-sub-mo">R$ 0,00</span></div>
             <div><strong>Subtotal Peças:</strong> <span id="print-sub-pe">R$ 0,00</span></div>
             <div class="print-grand-total"><strong>TOTAL GERAL:</strong> <span id="print-total">R$ 0,00</span></div>
+        </div>
+
+        <div class="print-section print-pagamento" id="print-pagamento-secao">
+            <h3>Pagamento</h3>
+            <div class="print-grid">
+                <div><strong>Situação:</strong> <span id="print-pg-situacao">--</span></div>
+                <div><strong>Forma:</strong> <span id="print-pg-forma">--</span></div>
+                <div><strong>Valor pago:</strong> <span id="print-pg-pago">R$ 0,00</span></div>
+                <div><strong>Falta receber:</strong> <span id="print-pg-falta">R$ 0,00</span></div>
+            </div>
+        </div>
+
+        <p class="print-garantia-nota" id="print-garantia-nota">
+            A garantia indicada vale a partir da data de entrega, para o serviço executado, e não cobre
+            desgaste natural nem peça fornecida pelo cliente.
+        </p>
+
+        <div class="print-assinaturas">
+            <div class="print-assinatura">
+                <span class="print-linha-assinatura"></span>
+                <small>Assinatura do cliente</small>
+                <small id="print-assina-cliente">--</small>
+            </div>
+            <div class="print-assinatura">
+                <span class="print-linha-assinatura"></span>
+                <small>Betão Auto Center</small>
+                <small>Responsável pela entrega</small>
+            </div>
         </div>
     </div>
 

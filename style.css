@@ -1463,8 +1463,14 @@ tr:hover td {
 }
 
 @media print {
-    body * {
-        visibility: hidden;
+    /* Esconde a interface por DISPLAY, não por visibility.
+       A técnica antiga (body * { visibility: hidden }) falhava contra estilo
+       inline: a navegação por etapas define visibility nos botões de Voltar e
+       Avançar pelo JS, e inline vence a folha de estilo — o botão "Avançar" e
+       o toast saíam impressos no papel entregue ao cliente.
+       display:none no irmão resolve de vez, e ainda tira o elemento do fluxo. */
+    body > *:not(#print-layout) {
+        display: none !important;
     }
 
     body {
@@ -1473,17 +1479,23 @@ tr:hover td {
         padding: 0;
     }
 
-    #print-layout,
-    #print-layout * {
-        visibility: visible;
+    #print-layout {
+        display: block !important;
+        position: static;
+        /* A margem do papel vem do @page. O padding de 40px existe para a
+           visualização em tela; somado à margem de página ele empurrava as
+           tabelas 22px para fora da borda direita do A4, cortando a coluna
+           de valores. */
+        width: auto;
+        padding: 0;
+        box-sizing: border-box;
     }
 
-    #print-layout {
-        display: block;
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+    /* Blocos que o generatePDF esconde (checklist vazio, orçamento sem
+       pagamento) continuam escondidos. */
+    #print-layout [style*="display: none"],
+    #print-layout [style*="display:none"] {
+        display: none !important;
     }
 
     @page {
@@ -1522,3 +1534,49 @@ tr:hover td {
 }
 
 .checklist-mais:hover { color: var(--brand); border-color: var(--brand); }
+
+/* =====================================================
+   IMPRESSÃO — blocos novos (retorno, checklist, pagamento, assinatura)
+   Cores e bordas em tom de cinza: o papel sai de impressora comum,
+   muitas vezes preto e branco.
+   ===================================================== */
+.print-aviso {
+    margin: 10px 0 14px;
+    padding: 10px 12px;
+    border: 1px solid #333;
+    border-left-width: 4px;
+    border-radius: 4px;
+    font-size: 12px;
+    background: #f2f2f2;
+}
+
+.print-linha { margin: 6px 0; font-size: 12px; line-height: 1.5; }
+
+.print-pagamento .print-grid { margin-top: 6px; }
+
+.print-garantia-nota {
+    margin: 14px 0 0;
+    font-size: 10px;
+    line-height: 1.5;
+    color: #444;
+    font-style: italic;
+}
+
+.print-assinaturas {
+    display: flex;
+    gap: 48px;
+    margin-top: 48px;
+    /* Assinatura não pode ficar sozinha numa página nova, separada do que
+       está sendo assinado. */
+    page-break-inside: avoid;
+}
+
+.print-assinatura { flex: 1; text-align: center; }
+
+.print-linha-assinatura {
+    display: block;
+    border-top: 1px solid #000;
+    margin-bottom: 6px;
+}
+
+.print-assinatura small { display: block; font-size: 10px; color: #333; }

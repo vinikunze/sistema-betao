@@ -12,7 +12,7 @@ const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUr
 
 /* Marca de versão: o teste de conexão mostra isso na tela, então dá pra saber
    na hora se o aparelho está com o código atual ou com uma cópia velha em cache. */
-const APP_VERSION = '2026-09-16.2-os-em-etapas';
+const APP_VERSION = '2026-09-16.3-pdf-completo';
 
 const CONFIG = { SESSION_KEY: 'betao_sess' };   // o código da empresa agora vive no banco
 
@@ -1031,16 +1031,80 @@ async function convertOrcamentoToOS() {
     } catch (e) { console.error(e); toast("Erro ao converter.", true); }
 }
 
+/* O papel que vai para a mão do cliente precisa dizer o mesmo que o sistema
+   sabe. Faltavam: telefone, checklist de entrada, situação de pagamento,
+   garantia por serviço, aviso de retorno e linha de assinatura — justamente
+   o que se usa quando alguém contesta alguma coisa depois. */
 function generatePDF() {
     const doc = db.os.find(x => x.id == stateOS.editId); if (!doc) return;
-    if (document.getElementById('print-type')) document.getElementById('print-type').textContent = stateOS.type === 'os' ? 'Ordem de Serviço' : 'Orçamento';
-    if (document.getElementById('print-id')) document.getElementById('print-id').textContent = doc.id; if (document.getElementById('print-date')) document.getElementById('print-date').textContent = doc.data; if (document.getElementById('print-status')) document.getElementById('print-status').textContent = doc.status.toUpperCase();
-    ['cliente', 'veiculo', 'modelo', 'placa', 'km', 'motor'].forEach(f => { const el = document.getElementById('print-' + f); if (el) el.textContent = doc[f] || 'Não informado'; });
-    if (document.getElementById('print-servicos')) document.getElementById('print-servicos').innerHTML = doc.servicos.map(s => `<tr><td>${s.descricao}</td><td>${s.qtd}</td><td>${fmt(s.valor)}</td><td>${fmt(s.valor * s.qtd)}</td></tr>`).join('');
-    if (document.getElementById('print-pecas')) document.getElementById('print-pecas').innerHTML = doc.pecas.map(p => `<tr><td>${p.nome}</td><td>${p.qtd}</td><td>${fmt(p.venda)}</td><td>${fmt(p.venda * p.qtd)}</td></tr>`).join('');
-    if (document.getElementById('print-sub-mo')) document.getElementById('print-sub-mo').textContent = fmt(doc.maoObra); if (document.getElementById('print-sub-pe')) document.getElementById('print-sub-pe').textContent = fmt(doc.receitaPecas); if (document.getElementById('print-total')) document.getElementById('print-total').textContent = fmt(doc.total);
+    const txt = (id, valor) => { const el = document.getElementById(id); if (el) el.textContent = valor; };
+    const bloco = (id, visivel) => { const el = document.getElementById(id); if (el) el.style.display = visivel ? 'block' : 'none'; };
+
+    txt('print-type', stateOS.type === 'os' ? 'Ordem de Serviço' : 'Orçamento');
+    txt('print-id', doc.id);
+    txt('print-date', doc.data);
+    txt('print-status', (doc.status || '').toUpperCase());
+
+    ['cliente', 'veiculo', 'modelo', 'placa', 'km', 'motor'].forEach(f => txt('print-' + f, doc[f] || 'Não informado'));
+
+    const dono = clientePorId(doc.cliente_id);
+    txt('print-telefone', (dono && dono.telefone) ? dono.telefone : 'Não informado');
+    txt('print-assina-cliente', doc.cliente || '');
+
+    // Retorno em garantia: sai destacado, porque é o que explica valor zerado
+    // ou serviço repetido para quem lê o papel depois.
+    const ehRetorno = !!doc.retorno_de_os;
+    bloco('print-retorno', ehRetorno);
+    if (ehRetorno) {
+        txt('print-retorno-os', '#' + doc.retorno_de_os);
+        txt('print-retorno-motivo', doc.retorno_motivo ? 'Motivo: ' + doc.retorno_motivo : '');
+    }
+
+    // Checklist só aparece se foi preenchido: seção vazia num documento
+    // assinado sugere que nada foi conferido.
+    const c = doc.checklist || {};
+    const itens = Object.keys(c.itens || {}).filter(k => c.itens[k]);
+    const temChecklist = !!(c.combustivel || itens.length || (c.avarias || '').trim());
+    bloco('print-checklist-secao', temChecklist);
+    if (temChecklist) {
+        txt('print-combustivel', c.combustivel || 'Não informado');
+        txt('print-entrada-data', doc.data || '--');
+        txt('print-itens', itens.length ? itens.join(', ') : 'Nenhum item registrado');
+        txt('print-avarias', (c.avarias || '').trim() || 'Nenhuma avaria observada na entrada');
+    }
+
+    const tabela = (id, linhas) => { const el = document.getElementById(id); if (el) el.innerHTML = linhas; };
+    tabela('print-servicos', (doc.servicos || []).map(sv => {
+        const dias = garantiaDoServico(sv.catalogoId);
+        const garantia = dias > 0 ? dias + ' dias' : 'Sem garantia';
+        return `<tr><td>${sv.descricao}</td><td>${garantia}</td><td>${sv.qtd}</td><td>${fmt(sv.valor)}</td><td>${fmt(sv.valor * sv.qtd)}</td></tr>`;
+    }).join('') || '<tr><td colspan="5">Nenhum serviço.</td></tr>');
+
+    tabela('print-pecas', (doc.pecas || []).map(p =>
+        `<tr><td>${p.nome}</td><td>${p.qtd}</td><td>${fmt(p.venda)}</td><td>${fmt(p.venda * p.qtd)}</td></tr>`
+    ).join('') || '<tr><td colspan="4">Nenhuma peça.</td></tr>');
+
+    txt('print-sub-mo', fmt(doc.maoObra));
+    txt('print-sub-pe', fmt(doc.receitaPecas));
+    txt('print-total', fmt(doc.total));
+
+    // Orçamento ainda não tem pagamento para mostrar.
+    const mostrarPagamento = stateOS.type === 'os';
+    bloco('print-pagamento-secao', mostrarPagamento);
+    if (mostrarPagamento) {
+        const falta = aReceberDaOS(doc);
+        txt('print-pg-situacao', nomeSituacao(doc.pagamento).nome);
+        txt('print-pg-forma', nomeForma(doc.forma_pagamento) || 'Não informada');
+        txt('print-pg-pago', fmt(doc.valor_pago));
+        txt('print-pg-falta', fmt(falta));
+    }
+
+    const temGarantia = (doc.servicos || []).some(sv => garantiaDoServico(sv.catalogoId) > 0);
+    bloco('print-garantia-nota', temGarantia);
+
     window.print();
 }
+
 
 /* =========================================
    8. OUTRAS PÁGINAS E EXTRAS
