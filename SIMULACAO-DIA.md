@@ -137,33 +137,21 @@ Cobranças) para fora da gaveta.
 
 ## Pendente, esperando você
 
-### Os dados da oficina no papel da OS
+### ~~Os dados da oficina no papel da OS~~ — feito
 
-O documento impresso ainda sai com dado de exemplo no cabeçalho:
+CNPJ 55.460.553/0001-19, Avenida Senador Jonas Pinheiro, 1491 — Jardim das
+Oliveiras, Sinop-MT, (66) 99636-9065.
 
-- CNPJ: `00.000.000/0000-00`
-- Telefone: `(00) 00000-0000`
-- Endereço: `Sinop, Mato Grosso`
+### ~~Comissão em retorno de garantia~~ — decidido: não paga
 
-Me passe o CNPJ, o telefone e o endereço certos que eu troco.
+Palavra do Vinicius: *"garantia não tem comissão, pois se é garantia nós
+cobrimos os custos."* Marcar a caixa de retorno zera a comissão de todos os
+serviços da OS, e o formulário avisa disso na hora em que a caixa é marcada —
+não no dia do acerto.
 
-### Comissão em retorno de garantia — decisão sua
-
-Hoje, quando um carro volta em garantia, o mecânico ganha comissão de novo
-pelo mesmo serviço. No dia simulado o retorno saiu com valor R$ 0,00, então a
-comissão ficou zerada por consequência — mas se você lançar o retrabalho com
-valor, a comissão sai outra vez.
-
-São três caminhos:
-
-1. **Como está:** o mecânico ganha de novo. Simples, mas o retrabalho sai caro
-   para a oficina (peça + mão de obra + comissão, de novo).
-2. **Sem comissão no retorno:** quem refez ganha só na primeira vez.
-3. **Sem comissão só para quem causou:** se outro mecânico consertar, esse
-   ganha; quem errou, não.
-
-Não mexi em nada — é regra de casa, não é decisão de sistema. Me diga qual você
-quer.
+A mão de obra continua registrada: o serviço foi feito, só não é pago. Assim o
+relatório de produção do mecânico não perde o trabalho, e a taxa de retorno
+continua contando o retrabalho.
 
 ### A senha `Podre123.`
 
